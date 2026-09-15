@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ../../studio-ops-repo/sync-commands.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/danger-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|mcp__robloxstudio-mcp__set_script_source|mcp__robloxstudio-mcp__edit_script_lines|mcp__robloxstudio-mcp__insert_script_lines|mcp__robloxstudio-mcp__execute_luau|mcp__robloxstudio-mcp__find_and_replace_in_scripts",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/roblox-skill-router.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "disableBypassPermissionsMode": "disable"
+  }
+}

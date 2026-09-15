@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "WebSearch",
+      "Bash(git:*)",
+      "WebFetch(domain:romonitorstats.com)",
+      "WebFetch(domain:www.roblox.com)",
+      "WebFetch(domain:theforgebeta.com)",
+      "WebFetch(domain:www.rolimons.com)",
+      "WebFetch(domain:techwiser.com)",
+      "WebFetch(domain:vocal.media)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "WebFetch(domain:devforum.roblox.com)",
+      "WebFetch(domain:about.roblox.com)",
+      "Bash(python3:*)",
+      "Bash(mv:*)",
+      "Bash(mkdir -p \"C:/Users/be/Dropbox/works/Claude-company/game-plan/gdd\" \"C:/Users/be/Dropbox/works/Claude-company/game-plan/mvp\")",
+      "Bash(mv \"GDD_BloomPrizon_v10.md\" gdd/)",
+      "Bash(mv \"MVP_scope.md\" mvp/)",
+      "Bash(pip show:*)",
+      "WebFetch(domain:ravenswatch.fandom.com)",
+      "Bash(pip list:*)",
+      "WebFetch(domain:play.google.com)",
+      "Bash(pandoc --version)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(ls:*)",
+      "Bash(python \"C:/Users/be/Dropbox/works/Claude-company/game-plan/generate_pitch_pdf.py\")",
+      "Bash(wait)",
+      "Read(//c/Users/be/AppData/Local/Temp/**)",
+      "WebFetch(domain:kling.ai)",
+      "WebFetch(domain:app.kling.ai)",
+      "WebFetch(domain:klingai.com)",
+      "WebFetch(domain:note.com)",
+      "WebFetch(domain:www.designyourway.net)",
+      "WebFetch(domain:www.gamedeveloper.com)"
+    ]
+  }
+}
