@@ -1,0 +1,124 @@
+UPGRADES
+├── PLAYER
+│   ├── DAMAGE
+│   │   ├── DAMAGE II
+│   │   ├── DAMAGE III | Price: $20
+│   │   │   ├── Your swings remove 5 voxels.
+│   │   │   └── Stat: DAMAGE 4 > 5
+│   │   ├── DAMAGE IV | Price: $50
+│   │   ├── DAMAGE V | Price: $100
+│   │   │   ├── Your swings remove 7 voxels.
+│   │   │   └── Stat: DAMAGE 6 > 7
+│   │   ├── DAMAGE VI
+│   │   ├── DAMAGE VII
+│   │   ├── DAMAGE VIII
+│   │   ├── DAMAGE IX
+│   │   ├── DAMAGE X
+│   │   ├── DAMAGE XI
+│   │   ├── DAMAGE XII
+│   │   ├── DAMAGE XIII
+│   │   ├── DAMAGE XIV
+│   │   ├── DAMAGE XV
+│   │   └── DAMAGE XVI | Price: $34,800
+│   ├── MINE SPEED
+│   │   ├── MINE SPEED I
+│   │   ├── MINE SPEED II | Price: $60
+│   │   │   ├── 5 swings per second.
+│   │   │   └── Stat: SWING RATE 4 > 5
+│   │   ├── MINE SPEED III | Price: $250
+│   │   ├── MINE SPEED IV | Price: $1,000
+│   │   │   ├── 7 swings per second.
+│   │   │   └── Stat: SWING RATE 6 > 7
+│   │   ├── MINE SPEED V | Price: $5,000
+│   │   └── MINE SPEED VI
+│   ├── MINE DISTANCE
+│   │   ├── MINE DISTANCE I | Price: $150
+│   │   │   ├── Mine blocks from 18 studs away.
+│   │   │   └── Stat: MINE RANGE > 18
+│   │   └── MINE DISTANCE II
+│   └── AUTO MINE | Price: $800
+│       ├── Hold to mine — no more click spam. You still do the aiming.
+│       └── Stat: AUTO MINE > 1
+├── DRONE
+│   ├── DRONE
+│   │   ├── DRONE I
+│   │   ├── DRONE II
+│   │   ├── DRONE III
+│   │   ├── DRONE IV
+│   │   ├── DRONE V
+│   │   ├── DRONE VI
+│   │   └── DRONE VII
+│   ├── DRONE DAMAGE
+│   │   ├── DRONE DAMAGE I
+│   │   ├── DRONE DAMAGE II
+│   │   ├── DRONE DAMAGE III
+│   │   └── DRONE DAMAGE IV
+│   ├── DRONE RATE
+│   │   ├── DRONE RATE I
+│   │   ├── DRONE RATE II
+│   │   ├── DRONE RATE III
+│   │   └── DRONE RATE IV
+│   └── DRONE SPEED
+│       ├── DRONE SPEED I
+│       ├── DRONE SPEED II
+│       ├── DRONE SPEED III | Price: $1,940
+│       │   ├── Drones fly at 19.2 studs/s.
+│       │   └── Stat: DRONE SPEED 14.4 > 19.2
+│       ├── DRONE SPEED IV
+│       │   ├── Drones fly at 24 studs/s.
+│       │   └── Stat: DRONE SPEED 19.2 > 24
+│       └── DRONE SPEED V
+└── TURRET
+    ├── TURRET
+    │   ├── TURRET I
+    │   ├── TURRET II
+    │   ├── TURRET III
+    │   ├── TURRET IV
+    │   └── TURRET V | Price: $1,035
+    ├── TURRET DAMAGE
+    │   ├── TURRET DAMAGE I
+    │   ├── TURRET DAMAGE II | Price: $20
+    │   │   ├── Turrets remove 3 voxels per tick.
+    │   │   └── Stat: TURRET DAMAGE 2 > 3
+    │   ├── TURRET DAMAGE III | Price: $60
+    │   │   ├── Turrets remove 4 voxels per tick.
+    │   │   └── Stat: TURRET DAMAGE 3 > 4
+    │   ├── TURRET DAMAGE IV | Price: $120
+    │   │   ├── Turrets remove 5 voxels per tick.
+    │   │   └── Stat: TURRET DAMAGE 4 > 5
+    │   └── TURRET DAMAGE V
+    ├── TURRET RATE
+    │   ├── TURRET RATE I
+    │   ├── TURRET RATE II
+    │   ├── TURRET RATE III | Price: $60
+    │   │   ├── Turret beams tick 4× per second.
+    │   │   └── Stat: TURRET RATE 3 > 4
+    │   └── TURRET RATE IV | Price: $120
+    ├── ORBIT SPEED
+    │   ├── ORBIT SPEED I | Price: $10
+    │   │   ├── Turrets orbit at 16 deg/s.
+    │   │   └── Stat: TURRET ORBIT SPEED > 16
+    │   ├── ORBIT SPEED II | Price: $20
+    │   │   ├── Turrets orbit at 24 deg/s.
+    │   │   └── Stat: TURRET ORBIT SPEED 16 > 24
+    │   ├── ORBIT SPEED III | Price: $40
+    │   ├── ORBIT SPEED IV | Price: $80
+    │   │   ├── Turrets orbit at 36 deg/s.
+    │   │   └── Stat: TURRET ORBIT SPEED 30 > 36
+    │   ├── ORBIT SPEED V
+    │   └── ORBIT SPEED VI
+    │       ├── Turrets orbit at 50 deg/s.
+    │       └── Stat: TURRET ORBIT SPEED 42 > 50
+    ├── AIM
+    │   ├── AIM I
+    │   ├── AIM II | Price: $500
+    │   │   ├── Turrets search 20 degrees for nearby blocks.
+    │   │   └── Stat: TURRET AIM 10 > 20
+    │   └── AIM III | Price: $10,350
+    │       ├── Turrets search 30 degrees for nearby blocks.
+    │       └── Stat: TURRET AIM 20 > 30
+    └── PIERCE
+        ├── PIERCE | Price: $5,000
+        │   ├── 20% chance a turret hit also damages the block behind.
+        │   └── Stat: TURRET PIERCE > 0.2
+        └── PIERCE II | Price: $13,900

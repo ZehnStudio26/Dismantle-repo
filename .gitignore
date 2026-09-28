@@ -1,0 +1,19 @@
+# Dependencies: rebuilt from package.json / package-lock.json with `npm install --ignore-scripts`
+node_modules/
+
+# Roblox Studio lock files (the .rbxl place backups themselves ARE tracked, see backup/)
+*.rbxl.lock
+*.rbxlx.lock
+
+# Local Claude Code settings: per-user, may hold tokens (team rule: never commit settings.local.json)
+.claude/settings.local.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS and Office temp files
+Thumbs.db
+desktop.ini
+.DS_Store
+~$*

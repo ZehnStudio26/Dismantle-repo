@@ -1,0 +1,2 @@
+-- Empty on purpose. A Script named Health here replaces Roblox's default one,
+-- which regenerates 1% HP per second. D4: no passive regeneration.
