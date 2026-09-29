@@ -12,6 +12,8 @@
 --   Area:      ToolConfig.Chainsaw.AreaByTier (KJ-25): at higher Damage tiers the same hit also lands
 --              on the aimed block's side neighbours (5) or the 3x3 around it (9), on its own layer.
 --              Each splash block passes Demolition.CanDamage on its own.
+--   Larvae:    every swing (block or not) also strikes the nearest living larva in front within
+--              EnemyRange (EnemyDamage x Player.Damage tier), the melee half of T-2 / L-2.
 --   Replies:   ChainsawHit:FireClient(player, ok, reason, crit, damage) for the client's log and its
 --              effects. Player attribute CutState carries the last verdict for the HUD.
 -- Animated tool mount: Shayan's ChainsawRig animations key a "Handle" joint (Motor6D Right Arm ->
@@ -19,10 +21,12 @@
 -- On equip the server replaces Roblox's RightGrip weld with that Motor6D (server-side so every client
 -- sees the saw where the animation puts it); on unequip it removes it again.
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ToolConfig = require(ReplicatedStorage.Config.ToolConfig)
 local UpgradeConfig = require(ReplicatedStorage.Config.UpgradeConfig)
+local Tags = require(ReplicatedStorage.Config.Tags)
 local Demolition = require(script.Parent.Demolition)
 
 local Cfg = ToolConfig.Chainsaw
@@ -34,6 +38,7 @@ local rng = Random.new()
 local AREA = { Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
 	Vector3.new(1, 0, 1), Vector3.new(1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(-1, 0, -1) }
 local lastHitAt: { [Player]: number } = {}
+local lastSwingAt: { [Player]: number } = {} -- the larva strike's own rate limit (a whiff has no block hit)
 local cuttingUntil: { [Player]: number } = {}
 local hits, refused = 0, 0
 
@@ -154,10 +159,45 @@ local function stateAfter(centre: Vector3): string
 	return "intact"
 end
 
+-- the melee half: the nearest living larva in front of the player within EnemyRange takes one hit
+local function strikeLarva(player: Player, swing: string?, now: number)
+	if not holdingChainsaw(player) or not alive(player) then return end
+	local minInterval = Cfg.MinHitInterval / UpgradeConfig.Value(player, "Player", "Speed")
+	if now - (lastSwingAt[player] or -math.huge) < minInterval then return end
+	local char = player.Character :: Model
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then return end
+	local best: Humanoid?, bestD = nil, Cfg.EnemyRange
+	for _, m in ipairs(CollectionService:GetTagged(Tags.Enemy)) do
+		if m:IsA("Model") and m:IsDescendantOf(workspace) and not Players:GetPlayerFromCharacter(m) and m:GetAttribute("Descending") ~= true then
+			local hum = m:FindFirstChildOfClass("Humanoid")
+			local r = m.PrimaryPart
+			if hum and hum.Health > 0 and r then
+				local d = r.Position - root.Position
+				local dist = d.Magnitude
+				if dist <= bestD and (dist < 0.5 or root.CFrame.LookVector:Dot(d.Unit) >= Cfg.EnemyArc) then best, bestD = hum, dist end
+			end
+		end
+	end
+	lastSwingAt[player] = now
+	if not best then return end
+	local dmg = Cfg.EnemyDamage * UpgradeConfig.Value(player, "Player", "Damage")
+	best:TakeDamage(dmg)
+	local name = ((best.Parent :: Instance)).Name
+	if best.Health <= 0 then
+		print(("[Chainsaw] %s %s killed %s (%.0f damage, %.1f studs)"):format(player.Name, tostring(swing), name, dmg, bestD))
+	else
+		print(("[Chainsaw] %s %s hit %s for %.0f, %.0f HP left"):format(player.Name, tostring(swing), name, dmg, best.Health))
+	end
+end
+
 ChainsawHit.OnServerEvent:Connect(function(player: Player, part: Instance?, hitPos: Vector3?, swing: string?)
-	if part ~= nil and not part:IsA("BasePart") then return end
+	if part ~= nil and (typeof(part) ~= "Instance" or not part:IsA("BasePart")) then return end
 	if hitPos ~= nil and typeof(hitPos) ~= "Vector3" then return end
+	if swing ~= nil and typeof(swing) ~= "string" then return end
 	local now = os.clock()
+	strikeLarva(player, swing, now)
+	if part == nil then return end -- a swing with no block under the cursor: only the larva strike
 	local reason, block = judge(player, part, now)
 	player:SetAttribute("CutState", reason)
 	if reason ~= "OK" or block == nil then
@@ -203,6 +243,7 @@ end)
 
 Players.PlayerRemoving:Connect(function(player)
 	lastHitAt[player] = nil
+	lastSwingAt[player] = nil
 	cuttingUntil[player] = nil
 end)
 

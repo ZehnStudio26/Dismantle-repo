@@ -333,12 +333,14 @@ local function onHit(swing: Swing, track: AnimationTrack, r: Rig)
 	local part, pos, holder, locked = aimed(r.root)
 	local at = if track.Length > 0 then track.TimePosition else (os.clock() - swingStartedAt) * currentMult
 	if locked then
+		ChainsawHit:FireServer(nil, nil, swing) -- no block, but the swing can still strike a larva
 		log("hit: %s at %.3fs -> %s is below the open layer %s: clear that layer first", swing, at, (holder :: Instance).Name, tostring(RunState:GetAttribute("ActiveLayer")))
 	elseif part and pos then
 		lastHitPos = pos
 		ChainsawHit:FireServer(part, pos, swing)
 		log("hit: %s at %.3fs -> %s under the cursor (at %s)", swing, at, (holder :: Instance).Name, tostring(pos))
 	else
+		ChainsawHit:FireServer(nil, nil, swing) -- no block, but the swing can still strike a larva
 		log("hit: %s at %.3fs -> no block under the cursor within %d block(s)", swing, at, reachBlocks())
 	end
 end

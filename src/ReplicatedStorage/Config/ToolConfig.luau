@@ -21,6 +21,12 @@ return {
 		-- aimed block only, 5 = plus its four side neighbours, 9 = the 3x3 around it. Each takes the same
 		-- damage and chunk cap as the aimed block. Indexed by the Player.Damage tier.
 		AreaByTier = { 1, 5, 9 },
+		-- Larvae (T-2 / L-2: the cutter also kills larvae, weaker than the gun). Every swing's hit moment
+		-- also strikes the nearest living larva within EnemyRange studs in front of the player (server check).
+		-- 7 x the Player.Damage tier: a 40 HP larva takes 6 hits at tier 1 (the gun's base 10 takes 4).
+		EnemyDamage = 7,
+		EnemyRange = 8,                      -- studs from HumanoidRootPart to the larva's root
+		EnemyArc = 0,                         -- dot of facing and direction: 0 = anywhere in front
 		CritChance = 0.15,
 		CritMultiplier = 2,
 		-- Selection (the reference): the block under the mouse cursor, if its centre lies within the
