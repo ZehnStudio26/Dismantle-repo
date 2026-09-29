@@ -151,14 +151,6 @@ local function judge(player: Player, part: Instance?, now: number): (string, PVI
 	return "OK", block
 end
 
--- what is left of the block at a grid centre after a hit, for the log
-local function stateAfter(centre: Vector3): string
-	local holder = Demolition.BlockAt(centre)
-	if holder == nil then return "BROKEN" end
-	if holder:IsA("Model") then return ("cracked, %d chunk(s) showing"):format(#holder:GetChildren()) end
-	return "intact"
-end
-
 -- the melee half: the nearest living larva in front of the player within EnemyRange takes one hit
 local function strikeLarva(player: Player, swing: string?, now: number)
 	if not holdingChainsaw(player) or not alive(player) then return end
@@ -203,7 +195,6 @@ ChainsawHit.OnServerEvent:Connect(function(player: Player, part: Instance?, hitP
 	if reason ~= "OK" or block == nil then
 		refused += 1
 		ChainsawHit:FireClient(player, false, reason, false, 0)
-		print(("[Chainsaw] %s %s hit refused: %s (%s)"):format(player.Name, tostring(swing), reason, part and part.Name or "nil"))
 		return
 	end
 	lastHitAt[player] = now
@@ -216,17 +207,14 @@ ChainsawHit.OnServerEvent:Connect(function(player: Player, part: Instance?, hitP
 	local centre = Demolition.CenterOf(block) or block:GetPivot().Position
 	local pos = hitPos or centre
 	if (pos - centre).Magnitude > Demolition.BlockSize() then pos = centre end
-	local blockName = block.Name
-	local applied, chunks = Demolition.Damage(part, damage, "Player", pos, cap, player)
+	Demolition.Damage(part, damage, "Player", pos, cap, player)
 	-- area splash: same damage and cap on the neighbours, aimed at the same side of each block
 	local area = if Cfg.AreaByTier then Cfg.AreaByTier[math.clamp(tier, 1, #Cfg.AreaByTier)] else 1
-	local splashed = 0
 	for i = 1, math.min(area - 1, #AREA) do
 		local offset = AREA[i] * Demolition.BlockSize()
 		local n = Demolition.BlockAt(centre + offset)
 		if n and n:IsDescendantOf(workspace) and Demolition.CanDamage(n, "Player") then
-			local a = Demolition.Damage(n, damage, "Player", pos + offset, cap, player)
-			if a > 0 then splashed += 1 end
+			Demolition.Damage(n, damage, "Player", pos + offset, cap, player)
 		end
 	end
 	hits += 1
@@ -237,8 +225,6 @@ ChainsawHit.OnServerEvent:Connect(function(player: Player, part: Instance?, hitP
 		if os.clock() >= (cuttingUntil[player] or 0) and player.Parent then player:SetAttribute("Cutting", false) end
 	end)
 	ChainsawHit:FireClient(player, true, "OK", crit, damage)
-	print(("[Chainsaw] %s %s hit %s for %.0f%s: %.0f applied over %d chunk(s), block %s; area %d, splashed %d neighbour(s)"):format(
-		player.Name, tostring(swing), blockName, damage, if crit then " CRIT" else "", applied, #chunks, stateAfter(centre), area, splashed))
 end)
 
 Players.PlayerRemoving:Connect(function(player)

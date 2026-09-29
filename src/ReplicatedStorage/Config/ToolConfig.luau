@@ -3,7 +3,7 @@ return {
 	-- D5 / TOOL-05: three inventory slots, keys 1-3 (T-1; the reserved 4th slot was dropped 2026-09-29).
 	-- 2026-09-28 (Bee): the chainsaw replaced the laser cutter; the LaserCutter tool, Server.Cutter and its
 	-- config are retired to ServerStorage.Reference.
-	Slots = { "Chainsaw", "Gun", "GasMask" },
+	Slots = { "Chainsaw", "Handgun", "GasMask" }, -- slot 2: StarterPack.Handgun (auto lock-on, 2026-09-29)
 	-- Chainsaw (Chainsaw Cutting Plan, 2026-09-28): melee cutter modelled on the free mining pack's
 	-- pickaxe, animated with Shayan's ChainsawRig set (Equip, Idle, Slash1, Slash2). Hold the mouse to
 	-- swing Slash1 then Slash2 as a combo; the hit lands at a fixed time into each slash. Timing and
@@ -60,8 +60,9 @@ return {
 		StartingLevel = 1,                  -- Q02: every player spawns with a Lv1 mask
 		FOVByTier = { 40, 52, 62, 70 },     -- TOOL-04: camera FOV while the mask is held, Lv1 narrow to Lv4 full
 		DefaultFOV = 70,
-		-- T-4: the eyehole overlay (StarterGui.MaskOverlay, authored in Studio) narrows the view while
-		-- the mask is held. Fraction of the screen left clear, per tier; 1 = no bands at all.
+		-- T-4: the goggle overlay (StarterGui.MaskOverlay.Mask, image 138611101429796) shows while the
+		-- mask is held. Per tier; the image is scaled by ApertureByTier[t] / ApertureByTier[1], so Lv1 shows
+		-- the whole frame and higher tiers push it out toward the screen edges (Lv4 = x2).
 		ApertureByTier = { 0.5, 0.64, 0.8, 1 },
 		ApertureTweenSeconds = 0.25,
 	},

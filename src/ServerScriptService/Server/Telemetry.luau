@@ -121,7 +121,7 @@ local function watch(player: Player, char: Model)
 		local tool = held(player)
 		if player:GetAttribute("InGas") == true and tool ~= "GasMask" then
 			wrongToolDamage.GasUnmasked += delta
-		elseif tool ~= "Gun" and activeEvents() > 0 then
+		elseif tool ~= "Handgun" and activeEvents() > 0 then
 			wrongToolDamage.LarvaWithoutGun += delta
 		end
 	end)

@@ -2,7 +2,7 @@
 -- Inventory (B5 / TOOL-05 / TOOL-06, D5): three slots on keys 1-3 (the 4th was dropped 2026-09-29).
 -- Switching costs exactly one action: one key press equips that slot (EquipTool swaps whatever
 -- is held). Pressing the slot you already hold unequips it. Replaces the default hotbar.
--- The bar is authored in Studio (StarterGui.Hotbar: Bar.Slot1..3, each with a 3D IconView of its tool
+-- The bar is authored in Studio (StarterGui.Hotbar: Bar.Slot1..3, each with an IconView image of its tool
 -- and a Key label); this script only styles the slots from UITheme: gold rim on the held tool, the
 -- icon dimmed while the tool is not owned. Click a slot to select it too.
 
@@ -21,14 +21,14 @@ local player = Players.LocalPlayer
 pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end)
 
 local bar = player:WaitForChild("PlayerGui"):WaitForChild("Hotbar"):WaitForChild("Bar")
-type Slot = { frame: Frame, stroke: UIStroke?, icon: ViewportFrame?, key: TextLabel? }
+type Slot = { frame: Frame, stroke: UIStroke?, icon: ImageLabel?, key: TextLabel? }
 local slots: { Slot } = {}
 for i = 1, SLOT_COUNT do
 	local f = bar:WaitForChild("Slot" .. i) :: Frame
 	slots[i] = {
 		frame = f,
 		stroke = f:FindFirstChild("Stroke") :: UIStroke?,
-		icon = f:FindFirstChild("IconView") :: ViewportFrame?,
+		icon = f:FindFirstChild("IconView") :: ImageLabel?,
 		key = f:FindFirstChild("Key") :: TextLabel?,
 	}
 end
@@ -78,10 +78,8 @@ local function select(i: number)
 	end
 	if tool.Parent == character() then
 		hum:UnequipTools()
-		print(("[Inventory] unequipped %s"):format(name))
 	else
 		hum:EquipTool(tool) -- one action: swaps out whatever was held
-		print(("[Inventory] slot %d -> %s"):format(i, name))
 	end
 end
 

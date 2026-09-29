@@ -334,14 +334,11 @@ local function onHit(swing: Swing, track: AnimationTrack, r: Rig)
 	local at = if track.Length > 0 then track.TimePosition else (os.clock() - swingStartedAt) * currentMult
 	if locked then
 		ChainsawHit:FireServer(nil, nil, swing) -- no block, but the swing can still strike a larva
-		log("hit: %s at %.3fs -> %s is below the open layer %s: clear that layer first", swing, at, (holder :: Instance).Name, tostring(RunState:GetAttribute("ActiveLayer")))
 	elseif part and pos then
 		lastHitPos = pos
 		ChainsawHit:FireServer(part, pos, swing)
-		log("hit: %s at %.3fs -> %s under the cursor (at %s)", swing, at, (holder :: Instance).Name, tostring(pos))
 	else
 		ChainsawHit:FireServer(nil, nil, swing) -- no block, but the swing can still strike a larva
-		log("hit: %s at %.3fs -> no block under the cursor within %d block(s)", swing, at, reachBlocks())
 	end
 end
 
@@ -351,9 +348,6 @@ ChainsawHit.OnClientEvent:Connect(function(ok: boolean, reason: string, crit: bo
 		screenFlash(crit)
 		kickCamera(crit)
 		if crit then critText(lastHitPos) end
-		log("server: hit landed for %.0f%s -> flash, screen flash, camera kick%s", damage, if crit then " CRIT" else "", if crit then ", CRITICAL! text" else "")
-	else
-		log("server: hit refused (%s)", reason)
 	end
 end)
 
@@ -393,7 +387,6 @@ local function startSwing(r: Rig, swing: Swing)
 	end)
 	track:Play(Cfg.FadeInTime, 1, currentMult)
 	if swingSound then swingSound:Play() end
-	log("swing #%d %s x%.2f by %s (next: %s)", swingCount, swing, currentMult, if byClick then "click" else "hold (auto cut)", if swing == "Slash1" then "Slash2 within the combo window" else "Slash1 after the cooldown")
 end
 
 local function wantsSwing(): boolean

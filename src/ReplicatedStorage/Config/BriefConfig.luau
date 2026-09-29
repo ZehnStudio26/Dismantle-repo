@@ -1,5 +1,6 @@
--- Text mission brief (B13 / MAP-09 / MAP-10). Replaces the opening movie for the MVP.
--- Narrated line by line on a player's first run; from the second run on, a skip is offered.
+-- Mission brief (B13 / MAP-09 / MAP-10) = the subtitles of the opening cutscene (P-5, 2026-09-29): the camera
+-- flies Workspace.CutsceneIntro while these lines type out in the letterbox (StarterPlayerScripts.MissionBrief).
+-- First run plays through; from the second run on, a skip is offered.
 return {
 	Title = "SITE BRIEF",
 	Lines = {

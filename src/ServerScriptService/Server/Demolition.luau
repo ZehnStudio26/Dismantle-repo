@@ -108,6 +108,7 @@ end
 -- an intact block becomes visible: move its Part from the hidden folder into the kaiju
 local function showBlock(b: Block)
 	if b.part and b.part.Parent ~= kaiju then
+		b.part.Size = Vector3.one * B -- nor when it is scaled
 		b.part.CFrame = blockCFrame(b) -- hidden parts do not follow the model when it is moved in Studio
 		b.part.Parent = kaiju
 	end
@@ -315,13 +316,26 @@ function Demolition.Init(model: Model)
 	end
 	for _, child in ipairs(model:GetChildren()) do register(child) end
 	if hiddenFolder then for _, child in ipairs(hiddenFolder:GetChildren()) do register(child) end end
-	-- The model may have been moved in Studio since generation (the hidden parts in ServerStorage do not
-	-- move with it), so derive the grid origin from an exposed part: position = origin + key * B.
+	-- The model may have been scaled or moved in Studio since generation (the hidden parts in ServerStorage
+	-- do not follow it; 2026-09-29 it was scaled to 0.9). Take the block size from an exposed part, then
+	-- derive the origin from it: position = origin + key * B. Hidden blocks take both when revealed.
+	for _, child in ipairs(model:GetChildren()) do
+		local b = instToBlock[child]
+		if b and child:IsA("BasePart") and math.abs(child.Size.X - B) > 0.01 then
+			warn(("[Demolition] Kaiju was scaled since generation: blocks %.2f -> %.2f studs (hidden blocks are resized when exposed)"):format(B, child.Size.X))
+			B = child.Size.X
+			C = B / G
+			model:SetAttribute("BlockSize", B)
+			break
+		elseif b then
+			break
+		end
+	end
 	for _, child in ipairs(model:GetChildren()) do
 		local b = instToBlock[child]
 		if b then
 			local derived = child.Position - b.key * B
-			if (derived - origin).Magnitude > 0.01 then
+			if (derived - origin).Magnitude > 0.05 then -- above float drift; a real move is studs
 				warn(("[Demolition] Kaiju was moved since generation: origin %s -> %s (hidden blocks snap to the grid when exposed)"):format(tostring(origin), tostring(derived)))
 				origin = derived
 				model:SetAttribute("Origin", origin)
@@ -336,7 +350,7 @@ function Demolition.Init(model: Model)
 	RunState:SetAttribute("State", "Running")
 	publish()
 	local exposed = #model:GetChildren()
-	print(("[Demolition] %d blocks of %d chunks (%.2f-stud chunks, %d-stud blocks): %d exposed, %d hidden server-side"):format(totalBlocks, UNITS, C, B, exposed, totalBlocks - exposed))
+	print(("[Demolition] %d blocks of %d chunks (%.2f-stud chunks, %.1f-stud blocks): %d exposed, %d hidden server-side"):format(totalBlocks, UNITS, C, B, exposed, totalBlocks - exposed))
 	-- Blocks removed by anything that bypassed Damage() are still counted, so the percent cannot drift.
 	model.ChildRemoved:Connect(function(child)
 		local b = instToBlock[child]

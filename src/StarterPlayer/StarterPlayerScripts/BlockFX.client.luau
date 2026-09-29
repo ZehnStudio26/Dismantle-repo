@@ -36,7 +36,6 @@ type Spring = { x: number, v: number }
 local grow: { [BasePart]: Spring } = {} -- pop-in springs, target 1
 local S = Cfg.PopSpring
 local OMEGA = math.sqrt(S.Stiffness)
-local counts = { punch = 0, popIn = 0, popOut = 0 }
 
 -- one damped spring toward target, in fixed substeps so a slow frame cannot blow it up
 local function stepSpring(sp: Spring, target: number, dt: number)
@@ -91,7 +90,6 @@ local function popBlock(block: Instance)
 	for _, part in ipairs(partsOf(block)) do baseOf(part) end -- record bases before the first frame scales them
 	if not pops[block] then block.Destroying:Once(function() pops[block] = nil end) end
 	pops[block] = { centre = centre, t0 = os.clock() } -- a re-hit restarts the punch; sizes always come from the base
-	counts.punch += 1
 end
 
 local function popIn(part: BasePart)
@@ -99,7 +97,6 @@ local function popIn(part: BasePart)
 	baseOf(part)
 	grow[part] = { x = S.RevealFrom, v = 0 }
 	place(part) -- small from its first frame, no full-size flash
-	counts.popIn += 1
 end
 
 RunService.RenderStepped:Connect(function(dt)
@@ -167,7 +164,6 @@ local function popOut(cf: CFrame, size: Vector3, color: Color3, material: any)
 	ghostCF[part] = cf
 	ghostSize[part] = size
 	table.insert(ghosts, { part = part, sp = { x = 1, v = S.BreakImpulse }, born = os.clock() })
-	counts.popOut += 1
 end
 
 RunService.RenderStepped:Connect(function(dt)
@@ -187,186 +183,3 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 end)
-
--- a short summary for playtest logs, at most every 5 s and only while something popped
-task.spawn(function()
-	while true do
-		task.wait(5)
-		if counts.punch + counts.popIn + counts.popOut > 0 then
-			print(("[BlockFX] last 5 s: %d block punch(es), %d chunk pop-out(s), %d pop-in(s)"):format(counts.punch, counts.popOut, counts.popIn))
-			counts.punch, counts.popIn, counts.popOut = 0, 0, 0
-		end
-	end
-end)
-
--- ---------- dust ----------
-local dustPart = Instance.new("Part")
-dustPart.Name = "Dust"
-dustPart.Size = Vector3.one
-dustPart.Transparency = 1
-dustPart.Anchored = true
-dustPart.CanCollide = false
-dustPart.CanQuery = false
-dustPart.CanTouch = false
-dustPart.Parent = fxFolder
-local dust = Instance.new("ParticleEmitter")
-dust.Rate = 0
-dust.Lifetime = NumberRange.new(Cfg.Dust.Lifetime * 0.6, Cfg.Dust.Lifetime)
-dust.Speed = NumberRange.new(6, 14)
-dust.SpreadAngle = Vector2.new(180, 180)
-dust.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2), NumberSequenceKeypoint.new(1, 5) })
-dust.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
-dust.Color = ColorSequence.new(Color3.fromRGB(200, 200, 190))
-dust.LightEmission = 0.2
-dust.Parent = dustPart
-
-local function puff(pos: Vector3, count: number)
-	dustPart.Position = pos
-	dust:Emit(count)
-end
-
--- ---------- shards (pooled) ----------
-type Shard = { part: Part, born: number, life: number }
-local pool: { Part } = {}
-local live: { Shard } = {}
-for i = 1, Cfg.Debris.MaxLive do
-	local s = Instance.new("Part")
-	s.Name = "Shard"
-	s.Anchored = true
-	s.CanCollide = false
-	s.CanQuery = false
-	s.CanTouch = false
-	s.CastShadow = false
-	s.Transparency = 1
-	s.Parent = fxFolder
-	pool[i] = s
-end
-
-local rng = Random.new()
-
-local function recycle(sh: Shard)
-	sh.part.Anchored = true
-	sh.part.Transparency = 1
-	sh.part.AssemblyLinearVelocity = Vector3.zero
-	sh.part.AssemblyAngularVelocity = Vector3.zero
-	table.insert(pool, sh.part)
-end
-
-local function shard(cf: CFrame, size: Vector3, color: Color3)
-	local part = table.remove(pool)
-	if not part then -- cap reached: recycle the oldest
-		local oldest = table.remove(live, 1)
-		if not oldest then return end
-		recycle(oldest)
-		part = table.remove(pool) :: Part
-	end
-	local d = Cfg.Debris
-	part.Size = size * d.Scale * rng:NextNumber(0.7, 1.15)
-	part.Color = color
-	part.Material = Enum.Material.SmoothPlastic
-	part.Transparency = 0
-	part.CFrame = cf * CFrame.new(rng:NextNumber(-0.3, 0.3) * size.X, rng:NextNumber(-0.3, 0.3) * size.Y, rng:NextNumber(-0.3, 0.3) * size.Z)
-		* CFrame.Angles(rng:NextNumber(0, math.pi), rng:NextNumber(0, math.pi), 0)
-	part.Anchored = false
-	local out = (part.Position - cf.Position)
-	local dir = if out.Magnitude > 0.1 then out.Unit else Vector3.yAxis
-	part.AssemblyLinearVelocity = dir * d.Speed + Vector3.new(0, d.Speed * 0.5, 0)
-	part.AssemblyAngularVelocity = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-1, 1), rng:NextNumber(-1, 1)) * d.Spin
-	table.insert(live, { part = part, born = os.clock(), life = d.Lifetime })
-end
-
-RunService.Heartbeat:Connect(function()
-	local now = os.clock()
-	for i = #live, 1, -1 do
-		local sh = live[i]
-		local age = now - sh.born
-		if age >= sh.life then
-			recycle(sh)
-			table.remove(live, i)
-		elseif age >= sh.life * Cfg.Debris.FadeAt then
-			sh.part.Transparency = (age - sh.life * Cfg.Debris.FadeAt) / (sh.life * (1 - Cfg.Debris.FadeAt))
-		end
-	end
-end)
-
--- ---------- "+$N" popup on block completion ----------
-local popupsShown = 0
-local function popup(pos: Vector3, text: string, color: Color3)
-	local P = Cfg.Popup
-	popupsShown += 1
-	local anchor = Instance.new("Part")
-	anchor.Name = "Popup"
-	anchor.Size = Vector3.one
-	anchor.Transparency = 1
-	anchor.Anchored = true
-	anchor.CanCollide = false
-	anchor.CanQuery = false
-	anchor.CanTouch = false
-	anchor.Position = pos
-	anchor.Parent = fxFolder
-	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(120, 40)
-	gui.AlwaysOnTop = true
-	gui.MaxDistance = P.MaxDistance
-	gui.Parent = anchor
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBlack
-	label.TextScaled = true
-	label.TextColor3 = color
-	label.TextStrokeTransparency = 0.2
-	label.Text = text
-	label.Parent = gui
-	local born = os.clock()
-	local conn: RBXScriptConnection
-	conn = RunService.RenderStepped:Connect(function()
-		local a = (os.clock() - born) / P.Lifetime
-		if a >= 1 or not anchor.Parent then
-			conn:Disconnect()
-			anchor:Destroy()
-			return
-		end
-		anchor.Position = pos + Vector3.new(0, P.Rise * easeOut(a), 0)
-		local fade = math.max(0, (a - 0.5) * 2)
-		label.TextTransparency = fade
-		label.TextStrokeTransparency = 0.2 + 0.8 * fade
-	end)
-end
-
--- ---------- events ----------
-local lastBurst, burstCount = 0, 0
-remote.OnClientEvent:Connect(function(kind: string, a: any, b: any, c: any, d: any)
-	if kind == "Hit" then
-		-- a = first chunk, b = block (Model or Part), c = hit position
-		if typeof(b) == "Instance" and b.Parent then popBlock(b) end
-		if typeof(c) == "Vector3" then puff(c, Cfg.Dust.PerHit) end
-	elseif kind == "Cell" then
-		if typeof(a) == "CFrame" and typeof(b) == "Vector3" and typeof(c) == "Color3" then popOut(a, b, c, d) end
-		local now = os.clock()
-		if now - lastBurst > 0.05 then lastBurst = now; burstCount = 0 end
-		if burstCount < (Cfg.Debris.MaxPerHit or 4) and typeof(a) == "CFrame" and typeof(b) == "Vector3" and typeof(c) == "Color3" then
-			burstCount += 1
-			for _ = 1, Cfg.Debris.PerCell do shard(a, b, c) end
-		end
-	elseif kind == "Block" then
-		-- a = block cframe, b = size, c = cash awarded, d = actor name
-		if typeof(a) == "CFrame" then
-			puff(a.Position, Cfg.Dust.PerBlock)
-			if typeof(c) == "number" and c > 0 then
-				local mine = typeof(d) == "string" and d == Players.LocalPlayer.Name
-				popup(a.Position, ("+$%d"):format(c), if mine then Cfg.Popup.MineColor else Cfg.Popup.OtherColor)
-			end
-		end
-	end
-end)
-
--- exposed for tests
-_G.BlockFX = {
-	LiveShards = function() return #live end,
-	PoolSize = function() return #pool end,
-	ActivePops = function() local n = 0 for _ in pairs(pops) do n += 1 end return n end,
-	Growing = function() local n = 0 for _ in pairs(grow) do n += 1 end return n end,
-	Ghosts = function() return #ghosts end,
-	PopupsShown = function() return popupsShown end,
-}

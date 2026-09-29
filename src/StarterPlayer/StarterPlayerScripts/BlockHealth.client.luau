@@ -96,9 +96,7 @@ local function onHit(block: Instance?, frac: number, hp: number, maxHp: number)
 	local bx, by, bz = block:GetAttribute("BX"), block:GetAttribute("BY"), block:GetAttribute("BZ")
 	if typeof(bx) ~= "number" or typeof(by) ~= "number" or typeof(bz) ~= "number" then return end
 	local key = ("%d_%d_%d"):format(bx, by, bz)
-	local isNew = bars[key] == nil
 	local b = barFor(key, ORIGIN + Vector3.new(bx, by, bz) * BLOCK)
-	if isNew then print(("[BlockHealth] bar over %s: %d / %d"):format(block.Name, math.ceil(math.max(hp, 0)), math.ceil(maxHp))) end
 	local f = math.clamp(frac, 0, 1)
 	b.value.Text = ("%d / %d"):format(math.ceil(math.max(hp, 0)), math.ceil(maxHp))
 	tween(b.fill, Cfg.FillSeconds, { Size = UDim2.fromScale(f, 1) })
@@ -108,7 +106,6 @@ local function onHit(block: Instance?, frac: number, hp: number, maxHp: number)
 	b.fading = false
 	tween(b.group, Cfg.FadeSeconds, { GroupTransparency = 0 })
 	b.untilAt = os.clock() + (if hp <= 0 then Cfg.BrokenShowSeconds else Cfg.ShowSeconds)
-	if hp <= 0 then print(("[BlockHealth] %s broken, bar closes in %.1fs"):format(block.Name, Cfg.BrokenShowSeconds)) end
 end
 
 remote.OnClientEvent:Connect(function(kind: string, _cell: any, block: any, _pos: any, frac: any, hp: any, maxHp: any)
