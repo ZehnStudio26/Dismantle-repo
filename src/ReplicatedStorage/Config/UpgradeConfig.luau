@@ -33,9 +33,9 @@ UpgradeConfig.Ladders = {
 		AutoCut  = { Label = "Auto cut",    Values = { 0, 1 }, Names = { "OFF", "ON" }, Costs = { 100 }, Unit = "", Desc = "Hold the mouse to keep cutting, no more clicking." }, -- Bee 2026-09-28: auto-digging is an upgrade (reference: Auto Mine)
 	},
 	Drone = {
-		Count    = { Label = "Drones",      Values = { 1, 2, 4 },           Costs = { 50, 160 }, Unit = "",       Desc = "More drones cutting for you." }, -- KJ-25: drones carry most of the cutting late in the run
-		Damage   = { Label = "Drone damage",Values = { 1, 1.5, 3 },         Costs = { 40, 140 }, Unit = "x",      Desc = "Your drones cut harder." },                      -- multiplier on DroneConfig.DPS; picks DroneConfig.ChunksPerHitByTier (3 / 2 / 1 hits a block)
-		Speed    = { Label = "Drone speed", Values = { 1, 1.25, 1.5 },      Costs = { 30, 120 }, Unit = "x",      Desc = "Your drones fly and track faster." },            -- multiplier on the three flight speeds
+		Count    = { Label = "Drones",      Values = { 0, 1, 4 },           Costs = { 10, 90 }, Unit = "",        Desc = "Drones that cut for you." },     -- 2026-09-29: no drone at the start; the first is bought with chainsaw cash (~2 min solo), then 4
+		Damage   = { Requires = { line = "Drone", stat = "Count", tier = 2, text = "Buy your first drone first." }, Label = "Drone damage",Values = { 1, 1.5, 3 },         Costs = { 40, 140 }, Unit = "x",      Desc = "Your drones cut harder." },                      -- multiplier on DroneConfig.DPS; picks DroneConfig.ChunksPerHitByTier (3 / 2 / 1 hits a block)
+		Speed    = { Requires = { line = "Drone", stat = "Count", tier = 2, text = "Buy your first drone first." }, Label = "Drone speed", Values = { 1, 1.25, 1.5 },      Costs = { 30, 120 }, Unit = "x",      Desc = "Your drones fly and track faster." },            -- multiplier on the three flight speeds
 	},
 	Gun = {
 		Damage   = { Label = "Gun damage",  Values = { 10, 14, 20 },        Costs = { 25, 75 }, Unit = "",        Desc = "Fewer shots to put a larva down." },              -- 4 / 3 / 2 shots on a 40 HP larva
@@ -58,6 +58,15 @@ function UpgradeConfig.Tier(player: Player, line: string, stat: string): number
 	local ladder = UpgradeConfig.Ladder(line, stat)
 	local max = if ladder then #ladder.Values else 1
 	return math.clamp(tonumber(player:GetAttribute(UpgradeConfig.Attribute(line, stat))) or 1, 1, max)
+end
+
+-- false (and the ladder's Requires.text) while another ladder's tier this one needs is not reached;
+-- tierOf(line, stat) returns a tier, so the server, the panel and Balance share one rule
+function UpgradeConfig.Unlocked(line: string, stat: string, tierOf: (string, string) -> number): (boolean, string?)
+	local ladder = UpgradeConfig.Ladder(line, stat)
+	local req = ladder and ladder.Requires
+	if req and tierOf(req.line, req.stat) < req.tier then return false, req.text end
+	return true, nil
 end
 
 -- the value the consumer should use right now

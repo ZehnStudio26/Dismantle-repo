@@ -1,9 +1,9 @@
 -- Handheld tools. Provisional (Q05).
 return {
-	-- D5 / TOOL-05: four inventory slots, keys 1-4. Slot 4 is reserved and empty at launch.
+	-- D5 / TOOL-05: three inventory slots, keys 1-3 (T-1; the reserved 4th slot was dropped 2026-09-29).
 	-- 2026-09-28 (Bee): the chainsaw replaced the laser cutter; the LaserCutter tool, Server.Cutter and its
 	-- config are retired to ServerStorage.Reference.
-	Slots = { "Chainsaw", "Gun", "GasMask", nil },
+	Slots = { "Chainsaw", "Gun", "GasMask" },
 	-- Chainsaw (Chainsaw Cutting Plan, 2026-09-28): melee cutter modelled on the free mining pack's
 	-- pickaxe, animated with Shayan's ChainsawRig set (Equip, Idle, Slash1, Slash2). Hold the mouse to
 	-- swing Slash1 then Slash2 as a combo; the hit lands at a fixed time into each slash. Timing and

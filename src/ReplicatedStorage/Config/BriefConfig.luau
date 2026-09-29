@@ -6,7 +6,7 @@ return {
 		"A kaiju came down on the city last night. It is not getting up.",
 		"You are the cleanup crew. Cut it down to nothing.",
 		"Chainsaw for the body. Mask when the gas hits. Gun for whatever crawls out.",
-		"Your drone helps.",
+		"Earn cash by cutting. Buy drones to cut with you.",
 		"100% dismantled clears the site. Get to work.",
 	},
 	SecondsPerLine = 2.8,

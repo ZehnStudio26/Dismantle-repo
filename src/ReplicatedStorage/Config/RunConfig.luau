@@ -8,5 +8,5 @@ return {
 	OverheadShare = 0.35,
 	-- Provisional economy (Q04 decides the real one): cash credited to the finishing actor per completed block,
 	-- drones credit their owner, as in the reference. Shown as "+$N" and on the HUD.
-	CashPerBlock = 1,
+	CashPerBlock = { Player = 3, Drone = 1 }, -- $ per block by who broke it (2026-09-29: chainsaw 1 -> 3)
 }

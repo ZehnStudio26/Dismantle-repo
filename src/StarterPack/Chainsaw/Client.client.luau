@@ -4,7 +4,11 @@
 -- under the cursor to the server, play the feel of the hit, and carry the body feel.
 --   * Equip plays once when the tool comes out, then Idle loops while it is held. The animations
 --     key the "Handle" joint, so the saw's position is theirs; the server mounts the Motor6D.
---     There is no Walk animation and Idle keys the legs, so walking with the saw slides (see plan).
+--     Upper body only (Shayan 2026-09-29): the clips come from Animations.UpperBody, copies of the
+--     rig's AnimSaves with the leg keys removed (registered as temporary ids), so the default walk and
+--     idle move the legs; the uploaded full-body ids are the fallback. On R6 the legs hang off the
+--     torso and the slashes twist it up to ~88 deg, so while the saw is out the hips are turned back
+--     by that twist every frame (keepLegs): the legs walk where you move, the torso swings.
 --   * Each click swings once (Bee 2026-09-28): Slash1, then Slash2 as a combo (ComboGap /
 --     ComboWindow), then a rest of FinishCooldown. A click during a swing queues the next one.
 --     Holding the mouse keeps swinging only with the Player.AutoCut upgrade. The Player.Speed tier
@@ -29,6 +33,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
 
 local ToolConfig = require(ReplicatedStorage.Config.ToolConfig)
 local FXConfig = require(ReplicatedStorage.Config.FXConfig)
@@ -436,6 +441,58 @@ local function outlineStep()
 	outline.Visible = centre ~= nil
 end
 
+-- an upper-body clip (leg keys removed) as an Animation, registered once per session; nil falls back
+-- to the uploaded full-body clip
+local upperIds: { [string]: string } = {}
+local function upperBody(name: string): Animation?
+	local folder = animFolder:FindFirstChild("UpperBody")
+	local kfs = folder and folder:FindFirstChild(name)
+	if not kfs or not kfs:IsA("KeyframeSequence") then return nil end
+	if not upperIds[name] then
+		local ok, id = pcall(function() return KeyframeSequenceProvider:RegisterKeyframeSequence(kfs) end)
+		if not ok then
+			warn(("[Chainsaw] could not register the upper-body %s clip (%s): using the full-body one"):format(name, tostring(id)))
+			return nil
+		end
+		upperIds[name] = id
+	end
+	local a = Instance.new("Animation")
+	a.AnimationId = upperIds[name]
+	return a
+end
+
+-- R6: counter the torso's twist at the hips so the legs keep walking straight. Motor6D.Transform is
+-- written by the Animator before PreSimulation, so this runs after it every frame. A hip no track
+-- animates keeps the value written last frame; that is detected so the correction never stacks.
+local restoreLegs: (() -> ())? = nil
+local function keepLegs(char: Model, root: BasePart, conns: { RBXScriptConnection })
+	local rootJoint = root:FindFirstChild("RootJoint")
+	local torso = char:FindFirstChild("Torso")
+	if not (rootJoint and rootJoint:IsA("Motor6D") and torso) then return end
+	type Hip = { motor: Motor6D, a: CFrame, base: CFrame?, written: CFrame? }
+	local hips: { Hip } = {}
+	for _, n in ipairs({ "Left Hip", "Right Hip" }) do
+		local m = torso:FindFirstChild(n)
+		if m and m:IsA("Motor6D") then table.insert(hips, { motor = m, a = (rootJoint.C1:Inverse() * m.C0).Rotation }) end
+	end
+	local function same(x: CFrame, y: CFrame): boolean
+		return (x.Position - y.Position).Magnitude < 1e-4 and x.LookVector:Dot(y.LookVector) > 0.99999 and x.UpVector:Dot(y.UpVector) > 0.99999
+	end
+	table.insert(conns, RunService.PreSimulation:Connect(function()
+		local untwist = rootJoint.Transform.Rotation:Inverse()
+		for _, h in ipairs(hips) do
+			local cur = h.motor.Transform
+			local base = if h.written and same(cur, h.written) then h.base :: CFrame else cur
+			local fixed = CFrame.new(base.Position) * (h.a:Inverse() * untwist * h.a) * base.Rotation
+			h.base, h.written = base, fixed
+			h.motor.Transform = fixed
+		end
+	end))
+	restoreLegs = function()
+		for _, h in ipairs(hips) do if h.base then h.motor.Transform = h.base end end
+	end
+end
+
 local function equip()
 	local char = player.Character
 	local humanoid = char and char:FindFirstChildOfClass("Humanoid")
@@ -453,7 +510,7 @@ local function equip()
 			warn("[Chainsaw] missing animation " .. name)
 			return
 		end
-		local track = animator:LoadAnimation(anim)
+		local track = animator:LoadAnimation(upperBody(name) or anim)
 		track.Looped = name == "Idle"
 		-- Idle sits under Equip and the slashes: Action < Action2 < Action3
 		track.Priority = if name == "Idle" then Enum.AnimationPriority.Action elseif name == "Equip" then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action3
@@ -468,6 +525,8 @@ local function equip()
 	end))
 	table.insert(r.conns, RunService.RenderStepped:Connect(outlineStep))
 	RunService:BindToRenderStep("ChainsawCamera", Enum.RenderPriority.Camera.Value + 1, cameraStep)
+	if humanoid.RigType == Enum.HumanoidRigType.R6 then keepLegs(char :: Model, root, r.conns) end
+	log("body split: %s clips, legs %s", if next(upperIds) then "upper-body" else "full-body (fallback)", if restoreLegs then "kept straight under the torso twist" else "not corrected (not R6)")
 	tracks.Equip:Play(Cfg.FadeInTime)
 	if equipSound then equipSound:Play() end
 	if idleSound then idleSound:Play() end
@@ -503,6 +562,7 @@ local function unequip()
 	r.humanoid.CameraOffset = Vector3.zero
 	r.humanoid.WalkSpeed = MOVE.DefaultWalkSpeed
 	for _, c in ipairs(r.conns) do c:Disconnect() end
+	if restoreLegs then restoreLegs(); restoreLegs = nil end
 	for _, track in pairs(r.tracks) do track:Stop(0) end
 	current = nil
 	log("unequipped (walk %d, FOV %d)", MOVE.DefaultWalkSpeed, CAM.DefaultFOV)

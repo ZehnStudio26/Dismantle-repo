@@ -219,7 +219,7 @@ function Demolition.Break(inst: Instance, source: string, actor: Player?)
 	-- reward on completion only (reference); provisional until Q04
 	local cash = 0
 	if actor and actor.Parent then
-		cash = RunConfig.CashPerBlock or 0
+		cash = RunConfig.CashPerBlock[source] or 0
 		if cash > 0 then actor:SetAttribute("Cash", (tonumber(actor:GetAttribute("Cash")) or 0) + cash) end
 	end
 	Demolition.BlockBroken:Fire(blockCFrame(b), Vector3.new(B, B, B), material(b), source, actor, cash)

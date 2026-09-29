@@ -17,7 +17,7 @@ local UpgradeConfig = require(ReplicatedStorage.Config.UpgradeConfig)
 -- ponytail: drone flight between blocks is a flat 0.25 s per block: a hop to a neighbour at
 -- DroneConfig.ApproachSpeed with the ease-out reaches station in about 0.25 s (2026-09-28). Measure it
 -- in a playtest (the drone's "finished a block" lines) and put the real number here if it drifts.
-local DRONE_TRAVEL = 0.25
+local DRONE_TRAVEL = 0.32 -- 2026-09-29: ApproachSpeed 40
 -- the upgrades that change cutting speed; Range, AutoCut and the gun also cost cash but are left out
 local SHOP = { { "Player", "Damage" }, { "Player", "Speed" }, { "Drone", "Count" }, { "Drone", "Damage" }, { "Drone", "Speed" } }
 
@@ -56,13 +56,15 @@ local function simulate(blocks: number, chunkHP: number, cells: number, party: n
 		local saw, drones = rate(tiers, chunkHP, cells)
 		local got = math.min(left, (saw + drones) * party * dt)
 		left -= got
-		cash += got / party * (RunConfig.CashPerBlock or 0)
+		local pay = RunConfig.CashPerBlock
+		cash += got / party * ((saw * (pay.Player or 0) + drones * (pay.Drone or 0)) / math.max(saw + drones, 1e-9))
 		t += dt
 		local best, bestCost = nil, math.huge
 		for _, s in ipairs(SHOP) do
 			local key = s[1] .. s[2]
 			local cost = UpgradeConfig.Ladders[s[1]][s[2]].Costs[tiers[key]]
-			if cost and cash >= cost and cost < bestCost then best, bestCost = key, cost end
+			local open = UpgradeConfig.Unlocked(s[1], s[2], function(l, st) return tiers[l .. st] or 1 end)
+			if open and cost and cash >= cost and cost < bestCost then best, bestCost = key, cost end
 		end
 		if best then
 			cash -= bestCost
