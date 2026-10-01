@@ -1,8 +1,9 @@
 --!strict
 -- Gun (A6 / TOOL-02): D8 unlimited ammo, D9 damages enemies only and never touches the kaiju.
 -- D9 holds by construction: this module never requires Demolition. It only ever calls
--- Humanoid:TakeDamage on models tagged "Enemy".
--- The client fires from the muzzle (StarterPack.Handgun.Client, which auto-locks the nearest larva); the server checks the shot, applies the
+-- Humanoid:TakeDamage on models tagged "Enemy" (through Enemies.Strike: knockback, kill reward) and
+-- lowers EggHP on incubating eggs (Enemies.HitEgg). Enemies does not require Demolition either.
+-- The client fires from the muzzle (StarterPack.Handgun.Client, which auto-locks the nearest larva or egg); the server checks the shot, applies the
 -- damage and relays the shot to the other clients for their muzzle flash and tracer.
 
 local Players = game:GetService("Players")
@@ -11,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UpgradeConfig = require(ReplicatedStorage.Config.UpgradeConfig)
 local Tags = require(ReplicatedStorage.Config.Tags)
+local Enemies = require(script.Parent.Enemies)
 -- damage, fire rate and range are the player's Gun tiers (U-4); tier 1 is the sheet's baseline
 local function stat(player: Player, name: string): number return UpgradeConfig.Value(player, "Gun", name) end
 local GunFire: RemoteEvent = ReplicatedStorage.Remotes.GunFire
@@ -61,19 +63,18 @@ GunFire.OnServerEvent:Connect(function(player: Player, target: Instance?, hitPos
 		return
 	end
 	local hum = enemyHumanoid(target)
+	local egg = if hum then nil else Enemies.EggOf(target)
 	local hitEnemy = false
-	if hum and hum.Health > 0 then
-		-- Reject spoofed targets far from the reported hit point.
+	if (hum and hum.Health > 0) or egg then
+		-- Reject spoofed targets: a raycast always reports a part, and it must be near the reported hit point.
 		local part = target :: BasePart
-		if part:IsA("BasePart") and (part.Position - hitPos).Magnitude > part.Size.Magnitude + 5 then return end
+		if not part:IsA("BasePart") or (part.Position - hitPos).Magnitude > part.Size.Magnitude + 5 then return end
 		local dmg = stat(player, "Damage")
-		hum:TakeDamage(dmg)
-		hitEnemy = true
-		local name = (hum.Parent :: Instance).Name
-		if hum.Health <= 0 then
-			print(("[Gun] %s killed %s (%d damage)"):format(player.Name, name, dmg))
+		if egg then
+			Enemies.HitEgg(egg, dmg, player)
 		else
-			print(("[Gun] %s hit %s for %d, %.0f HP left"):format(player.Name, name, dmg, hum.Health))
+			Enemies.Strike(hum :: Humanoid, dmg, player)
+			hitEnemy = true -- red sparks for the other clients, matching the shooter's own isEnemy
 		end
 	end
 	-- everyone else sees the flash and the tracer; the shooter already played them

@@ -69,5 +69,4 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 ToTop.OnClientEvent:Connect(function(ok: boolean, why: string, wait: number)
 	if (ok or wait > 0) and wait > 0 then until_ = os.clock() + wait end
-	print(("[ToTop] %s"):format(why))
 end)

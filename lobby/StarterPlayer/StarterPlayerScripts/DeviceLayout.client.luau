@@ -89,8 +89,6 @@ local function refresh(reason: string)
 	player:SetAttribute("DeviceClass", class)
 	local n = applyAll(class)
 	local vp = workspace.CurrentCamera.ViewportSize
-	print(("[Device] %s layout (%dx%d, touch %s, mouse %s, %s): %d element(s) adjusted"):format(class, vp.X, vp.Y,
-		tostring(UserInputService.TouchEnabled), tostring(UserInputService.MouseEnabled), reason, n))
 end
 
 pg.DescendantAdded:Connect(function(d)

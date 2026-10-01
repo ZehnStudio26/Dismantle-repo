@@ -25,6 +25,11 @@ UpgradeConfig.Stats = {
 
 -- Desc is the one-line tooltip text on the skill tree (reference: "20% chance a turret hit also
 -- damages the block behind."). Keep it to one sentence.
+-- KJ-100 (2026-09-30, every line since 2026-10-01): upgrades last one run. Their tiers are never saved
+-- (Server.Profile skips them), so every run starts at tier 1 and they are bought again with that run's cash;
+-- only Cash and Medkits carry over. The lobby cannot sell them (Unlocked: no kaiju there, so no run).
+UpgradeConfig.RunOnly = { Drone = true, Player = true, Gun = true }
+
 UpgradeConfig.Ladders = {
 	Player = {
 		Damage   = { Label = "Cut damage",  Values = { 1, 1.4, 1.9 },       Costs = { 30, 120 }, Unit = "x",      Desc = "Every swing cuts harder and cuts the blocks around it too." }, -- multiplies DamagePerHit, picks ChunksPerHitByTier and ToolConfig.Chainsaw.AreaByTier
@@ -63,6 +68,7 @@ end
 -- false (and the ladder's Requires.text) while another ladder's tier this one needs is not reached;
 -- tierOf(line, stat) returns a tier, so the server, the panel and Balance share one rule
 function UpgradeConfig.Unlocked(line: string, stat: string, tierOf: (string, string) -> number): (boolean, string?)
+	if UpgradeConfig.RunOnly[line] and not workspace:FindFirstChild("Kaiju") then return false, "Bought during a run." end
 	local ladder = UpgradeConfig.Ladder(line, stat)
 	local req = ladder and ladder.Requires
 	if req and tierOf(req.line, req.stat) < req.tier then return false, req.text end

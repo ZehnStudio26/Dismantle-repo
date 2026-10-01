@@ -124,7 +124,6 @@ RunService.Heartbeat:Connect(function()
 			elseif enemy then
 				local dmg = Cfg.EnemyDPS * mult * Cfg.HitInterval
 				enemy:TakeDamage(dmg)
-				print(("[Cutter] %s cut %s for %.1f, %.0f HP left"):format(player.Name, (enemy.Parent :: Instance).Name, dmg, math.max(0, enemy.Health)))
 			end
 		end
 		if tool then setBeam(player, tool, beamPos) end

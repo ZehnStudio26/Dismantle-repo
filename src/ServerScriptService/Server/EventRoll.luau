@@ -66,7 +66,6 @@ Demolition.BlockBroken.Event:Connect(function(cf: CFrame, size: Vector3, materia
 	local active = activeEvents()
 	if pct < Cfg.SingleEventBelowPercent and active > 0 then
 		suppressed += 1
-		print(("[Roll] suppressed: single-event phase (%.1f%% < %d%%) with %d active. %d suppressed so far"):format(pct, Cfg.SingleEventBelowPercent, active, suppressed))
 		return
 	end
 	local kind = EventRoll.Pick()
@@ -75,7 +74,6 @@ Demolition.BlockBroken.Event:Connect(function(cf: CFrame, size: Vector3, materia
 	RunState:SetAttribute("LastEvent", kind)
 	RunState:SetAttribute("EventCount", count)
 	local party = EventRoll.PartySize()
-	print(("[Roll] #%d %s at %.1f%% (party %d, %d already active, broken by %s)"):format(count, kind, pct, party, active, source))
 	EventRoll.Triggered:Fire(kind, cf, size, source, party)
 end)
 

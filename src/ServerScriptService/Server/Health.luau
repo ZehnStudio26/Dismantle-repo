@@ -29,7 +29,6 @@ end
 local function checkWipe(why: string, except: Player?)
 	if RunState:GetAttribute("State") == "Running" and aliveCount(except) == 0 then
 		RunState:SetAttribute("State", "Failed")
-		print(("[Dismantle] Run failed: no one left standing (D4, %s)"):format(why))
 	end
 end
 
@@ -41,9 +40,7 @@ local function onCharacter(player: Player, char: Model)
 	hum.Died:Connect(function()
 		if RunState:GetAttribute("State") == "Running" then
 			player:SetAttribute("Down", true)
-			print(("[Health] %s is down: spectating for the rest of the run (%d teammate(s) still up)"):format(player.Name, aliveCount()))
 		else
-			print(("[Health] %s went down"):format(player.Name))
 		end
 		checkWipe(player.Name .. " went down")
 	end)
@@ -59,7 +56,6 @@ local function syncRespawn()
 		if p:GetAttribute("Down") == true or not hum or hum.Health <= 0 then
 			p:SetAttribute("Down", nil)
 			task.spawn(function() p:LoadCharacter() end)
-			print(("[Health] run over: %s respawns"):format(p.Name))
 		end
 	end
 end

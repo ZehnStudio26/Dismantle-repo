@@ -25,33 +25,9 @@ require(script.Parent.Medkit)     -- R-4: use a lobby-bought medkit (H)
 require(script.Parent.Gas)
 require(script.Parent.Mask)
 require(script.Parent.Drone)
+require(script.Parent.Hook)        -- grappling hook: validates throws, broadcasts ropes (the client pulls)
 require(script.Parent.Scaffolding) -- climbing towers: drops gangways of cleared layers
 require(script.Parent.Brief)
 require(script.Parent.Telemetry)
 require(script.Parent.RunEnd) -- H-2: results, clear bonus, back to the lobby
 require(script.Parent.Balance).Report(kaiju)
-
-Demolition.Cleared.Event:Connect(function()
-	-- the result screen, clear bonus and lobby return live in Server.RunEnd (H-2)
-	print("[Dismantle] Kaiju cleared. Contribution:", Demolition.GetContribution())
-end)
-
-print(("[Dismantle] Run started. %d blocks."):format(game.ReplicatedStorage.RunState:GetAttribute("TotalBlocks")))
-
--- one status line every 30 s while the run is on (replaces the old per-block / per-swing logs)
-local UpgradeConfig = require(game.ReplicatedStorage.Config.UpgradeConfig)
-local RunState = game.ReplicatedStorage.RunState
-task.spawn(function()
-	while task.wait(30) do
-		if RunState:GetAttribute("State") ~= "Running" or #game:GetService("Players"):GetPlayers() == 0 then continue end
-		local who = {}
-		for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
-			local hum = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
-			table.insert(who, ("%s $%d %s, %d drone(s)"):format(p.Name, tonumber(p:GetAttribute("Cash")) or 0,
-				if p:GetAttribute("Down") == true then "DOWN" else ("%.0f HP"):format(hum and hum.Health or 0),
-				UpgradeConfig.Value(p, "Drone", "Count")))
-		end
-		print(("[Run] %.1f%% demolished, layer %s open, %s block(s) left | %s"):format(tonumber(RunState:GetAttribute("DemolitionPercent")) or 0,
-			tostring(RunState:GetAttribute("ActiveLayer")), tostring(RunState:GetAttribute("RemainingBlocks")), table.concat(who, "; ")))
-	end
-end)

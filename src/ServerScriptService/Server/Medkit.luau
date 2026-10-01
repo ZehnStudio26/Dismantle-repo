@@ -15,7 +15,6 @@ local lastUse: { [Player]: number } = {}
 
 local function reply(player: Player, id: string, ok: boolean, reason: string)
 	UseItem:FireClient(player, id, ok, reason)
-	print(("[Medkit] %s %s: %s"):format(player.Name, id, reason))
 end
 
 UseItem.OnServerEvent:Connect(function(player: Player, id: any)

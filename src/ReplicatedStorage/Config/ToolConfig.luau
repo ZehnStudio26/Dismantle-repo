@@ -1,9 +1,10 @@
 -- Handheld tools. Provisional (Q05).
 return {
-	-- D5 / TOOL-05: three inventory slots, keys 1-3 (T-1; the reserved 4th slot was dropped 2026-09-29).
+	-- D5 / TOOL-05: four inventory slots, keys 1-4 (T-1; the 4th slot was dropped 2026-09-29 and is back
+	-- 2026-10-01 for the grappling hook, StarterPack.GrapplingHook, numbers in Config.HookConfig).
 	-- 2026-09-28 (Bee): the chainsaw replaced the laser cutter; the LaserCutter tool, Server.Cutter and its
 	-- config are retired to ServerStorage.Reference.
-	Slots = { "Chainsaw", "Handgun", "GasMask" }, -- slot 2: StarterPack.Handgun (auto lock-on, 2026-09-29)
+	Slots = { "Chainsaw", "Handgun", "GasMask", "GrapplingHook" }, -- slot 2: StarterPack.Handgun (auto lock-on, 2026-09-29)
 	-- Chainsaw (Chainsaw Cutting Plan, 2026-09-28): melee cutter modelled on the free mining pack's
 	-- pickaxe, animated with Shayan's ChainsawRig set (Equip, Idle, Slash1, Slash2). Hold the mouse to
 	-- swing Slash1 then Slash2 as a combo; the hit lands at a fixed time into each slash. Timing and

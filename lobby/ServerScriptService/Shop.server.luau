@@ -14,7 +14,6 @@ local lastBuy: { [Player]: number } = {}
 
 local function reply(player: Player, item: string, ok: boolean, reason: string)
 	BuyItem:FireClient(player, item, ok, reason)
-	print(("[Shop] %s %s: %s"):format(player.Name, item, reason))
 end
 
 BuyItem.OnServerEvent:Connect(function(player: Player, itemId: any)
@@ -36,4 +35,3 @@ BuyItem.OnServerEvent:Connect(function(player: Player, itemId: any)
 end)
 
 Players.PlayerRemoving:Connect(function(player) lastBuy[player] = nil end)
-print("[Shop] ready: " .. table.concat(Shop.Order, ", "))

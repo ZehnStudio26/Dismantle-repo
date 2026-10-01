@@ -10,6 +10,7 @@
 --     teleport back to the place they came from (join data SourcePlaceId; RunConfig.LobbyPlaceId for anyone
 --     who joined the gameplay place directly). TeleportAsync with retries (Roblox teleport guide: retry a
 --     Flooded result after ~15 s, a Failure after ~1 s). Studio never teleports: the log says so.
+--   * lobby first: in a public (not reserved) server of this place every player is sent to the lobby at once
 -- Per-player numbers: blocks = blocks broken by the player or their drones (Demolition.BlockBroken actor);
 -- earned = every Cash increase after the saved profile loaded (cutting, drones, survivors), so the loaded
 -- balance and the clear bonus are not counted as earnings.
@@ -106,7 +107,6 @@ local function returnToLobby(list: { Player }, why: string)
 			for attempt = 1, TRIES do
 				local ok, err = pcall(function() TeleportService:TeleportAsync(lobbyId, group, options) end)
 				if ok then
-					print(("[RunEnd] %d player(s) returning to lobby %d (%s)"):format(#group, lobbyId, why))
 					return
 				end
 				warn(("[RunEnd] teleport to lobby %d failed (%d/%d): %s"):format(lobbyId, attempt, TRIES, tostring(err)))
@@ -131,6 +131,14 @@ TeleportService.TeleportInitFailed:Connect(function(p: Player, result: Enum.Tele
 		task.delay(1, function() if p.Parent then returnToLobby({ p }, "retry after Failure") end end)
 	end
 end)
+
+-- lobby first (Shayan 2026-09-30): runs only happen in the reserved servers the lobby's pads create. A public
+-- server of this place means someone joined it directly (a place link, a direct join): send them to the lobby
+local directJoin = not RunService:IsStudio() and game.PrivateServerId == ""
+if directJoin then
+	Players.PlayerAdded:Connect(function(p) returnToLobby({ p }, "joined the gameplay place directly") end)
+	for _, p in ipairs(Players:GetPlayers()) do returnToLobby({ p }, "joined the gameplay place directly") end
+end
 
 local function finish(state: string)
 	if ended then return end
@@ -170,9 +178,6 @@ local function finish(state: string)
 	end
 	local lines = {}
 	for _, c in ipairs(crew) do table.insert(lines, ("%s %d blocks $%d"):format(c.name, c.blocks, c.earned)) end
-	print(("[RunEnd] %s after %d:%02d (%.1f%%), %d survivor(s), clear bonus $%d each; crew: %s; back to the lobby in %ds"):format(
-		if cleared then "KAIJU DISMANTLED" else "SITE LOST", seconds // 60, seconds % 60, percent, survivors, bonus,
-		table.concat(lines, ", "), RESULTS_SECONDS))
 	task.delay(RESULTS_SECONDS, function() returnToLobby(Players:GetPlayers(), "results timer") end)
 end
 

@@ -96,7 +96,6 @@ local function spawnDrone(player: Player): Drone
 	local d: Drone = { owner = player, body = body, beam = beam, anchor = a1, target = nil, nextSearch = 0, nextHit = 0, paused = false }
 	drones[player] = d
 	if player:GetAttribute("DroneLevel") == nil then player:SetAttribute("DroneLevel", Cfg.StartingLevel) end
-	print(("[Drone] %s's drone deployed (Lv%s)"):format(player.Name, tostring(player:GetAttribute("DroneLevel"))))
 	return d
 end
 
@@ -126,7 +125,6 @@ RunService.Heartbeat:Connect(function(dt: number)
 		if paused ~= d.paused then
 			d.paused = paused
 			local c = Demolition.GetContribution()
-			print(("[Drone] %s's drone %s (share cap %.0f%%: drone %d vs player %d)"):format(player.Name, if paused then "paused" else "resumed", Cfg.MaxShare * 100, c.Drone or 0, c.Player or 0))
 		end
 		if paused then
 			setBeam(d, nil)
@@ -141,7 +139,6 @@ RunService.Heartbeat:Connect(function(dt: number)
 				local found = findTarget(d, root)
 				if found and ((Demolition.CenterOf(found) or found:GetPivot().Position) - d.body.Position).Magnitude <= Cfg.Range then
 					d.target = found
-					print(("[Drone] %s's drone -> %s (%s)"):format(player.Name, found.Name, tostring(found:GetAttribute("BlockMaterial"))))
 				end
 			end
 			t = d.target

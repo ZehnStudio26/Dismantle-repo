@@ -39,7 +39,6 @@ local function prune()
 			removed += 1
 		end
 	end
-	if removed > 0 then print(("[Scaffolding] layer %d open: removed %d gangway part(s) of cleared layers"):format(active, removed)) end
 end
 
 -- ---------- landing on the open layer ----------
@@ -72,12 +71,10 @@ local function putOnTop(player: Player, near: Vector3, why: string): boolean
 	if not char or not root or not root:IsA("BasePart") then return false end
 	local at = landing(near)
 	if not at then
-		print(("[Scaffolding] %s: no intact edge block on the open layer to land on (%s)"):format(player.Name, why))
 		return false
 	end
 	local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
 	char:PivotTo(CFrame.lookAt(at, at + (if look.Magnitude > 0.1 then look else Vector3.zAxis)))
-	print(("[Scaffolding] %s -> open layer %s at %s (%s)"):format(player.Name, tostring(RunState:GetAttribute("ActiveLayer")), tostring(at), why))
 	return true
 end
 
@@ -122,7 +119,6 @@ ToTop.OnServerEvent:Connect(function(player: Player)
 	local now = os.clock()
 	local function reply(ok: boolean, why: string, wait: number)
 		ToTop:FireClient(player, ok, why, wait)
-		print(("[Scaffolding] %s TO TOP button: %s"):format(player.Name, why))
 	end
 	if RunState:GetAttribute("State") ~= "Running" then return reply(false, "the run is not on", 0) end
 	local left = cooldown - (now - (lastButton[player] or -math.huge))
@@ -171,7 +167,6 @@ end)
 if folder then
 	local towers = 0
 	for _, t in ipairs(folder:GetChildren()) do if t:IsA("Model") then towers += 1 end end
-	print(("[Scaffolding] %d tower(s) around the kaiju, %d TO TOP pad(s), respawn on the open layer"):format(towers, padCount))
 else
 	warn("[Scaffolding] Workspace.Scaffolding is missing: nothing to climb onto the kaiju with")
 end

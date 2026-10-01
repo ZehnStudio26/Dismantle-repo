@@ -166,7 +166,4 @@ task.spawn(function()
 	task.wait(FADE_SECONDS)
 	spin:Disconnect()
 	gui:Destroy()
-	print(("[Loader] loading screen done after %.1f s: game loaded at %.1f s, world streamed (%d instances) in %.1f s, %d of %d asset(s) (%d%%) in by %.1f s%s"):format(
-		os.clock() - started, tLoaded, streamed, tStream, done, #ids, math.floor(done / total * 100), tPreload,
-		if done >= total * READY_SHARE or finished then "" else " (safety cap reached)"))
 end)

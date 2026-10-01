@@ -168,7 +168,6 @@ local function finish(skipped: boolean)
 	controls(true)
 	bindSkip(false)
 	BriefDone:FireServer(skipped)
-	print(("[Brief] cutscene %s"):format(if skipped then "skipped" else "finished"))
 end
 
 local function show(runs: number)
@@ -203,8 +202,6 @@ local function show(runs: number)
 	local narration = #Cfg.Lines * Cfg.SecondsPerLine + Cfg.HoldSeconds
 	local camEnd = if #keys > 0 then keys[#keys].t else 0
 	local total = math.max(narration, camEnd)
-	print(("[Brief] cutscene: %d shot(s) over %.1f s, %d line(s), briefed %d time(s) before, skip %s"):format(
-		#keys, camEnd, #Cfg.Lines, runs, if skipAllowed then "offered" else "not offered (first run)"))
 
 	if #keys > 0 then
 		local cam = workspace.CurrentCamera

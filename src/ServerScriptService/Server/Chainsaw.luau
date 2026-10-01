@@ -12,8 +12,9 @@
 --   Area:      ToolConfig.Chainsaw.AreaByTier (KJ-25): at higher Damage tiers the same hit also lands
 --              on the aimed block's side neighbours (5) or the 3x3 around it (9), on its own layer.
 --              Each splash block passes Demolition.CanDamage on its own.
---   Larvae:    every swing (block or not) also strikes the nearest living larva in front within
---              EnemyRange (EnemyDamage x Player.Damage tier), the melee half of T-2 / L-2.
+--   Larvae:    every swing (block or not) also strikes the nearest living larva or incubating egg
+--              in front within EnemyRange (EnemyDamage x Player.Damage tier), the melee half of T-2 / L-2.
+--              A larva wins a tie. Applied through Enemies.Strike / HitEgg (knockback, rewards).
 --   Replies:   ChainsawHit:FireClient(player, ok, reason, crit, damage) for the client's log and its
 --              effects. Player attribute CutState carries the last verdict for the HUD.
 -- Animated tool mount: Shayan's ChainsawRig animations key a "Handle" joint (Motor6D Right Arm ->
@@ -28,6 +29,7 @@ local ToolConfig = require(ReplicatedStorage.Config.ToolConfig)
 local UpgradeConfig = require(ReplicatedStorage.Config.UpgradeConfig)
 local Tags = require(ReplicatedStorage.Config.Tags)
 local Demolition = require(script.Parent.Demolition)
+local Enemies = require(script.Parent.Enemies)
 
 local Cfg = ToolConfig.Chainsaw
 local ChainsawHit: RemoteEvent = ReplicatedStorage.Remotes.ChainsawHit
@@ -95,7 +97,6 @@ local function mount(player: Player, tool: Tool)
 	motor.C0 = CFrame.identity
 	motor.C1 = CFrame.identity
 	motor.Parent = arm
-	print(("[Chainsaw] %s equipped: RightGrip %s, Motor6D Handle on %s (%s rig)"):format(player.Name, if grip then "replaced" else "not found (none to replace)", arm.Name, tostring((char:FindFirstChildOfClass("Humanoid") :: Humanoid).RigType)))
 end
 
 local function unmount(player: Player, char: Model?)
@@ -151,7 +152,7 @@ local function judge(player: Player, part: Instance?, now: number): (string, PVI
 	return "OK", block
 end
 
--- the melee half: the nearest living larva in front of the player within EnemyRange takes one hit
+-- the melee half: the nearest living larva or egg in front of the player within EnemyRange takes one hit
 local function strikeLarva(player: Player, swing: string?, now: number)
 	if not holdingChainsaw(player) or not alive(player) then return end
 	local minInterval = Cfg.MinHitInterval / UpgradeConfig.Value(player, "Player", "Speed")
@@ -159,27 +160,34 @@ local function strikeLarva(player: Player, swing: string?, now: number)
 	local char = player.Character :: Model
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not root or not root:IsA("BasePart") then return end
-	local best: Humanoid?, bestD = nil, Cfg.EnemyRange
+	local best: Humanoid?, bestEgg: Model?, bestD = nil, nil, Cfg.EnemyRange
+	local function inFront(at: Vector3): number?
+		local d = at - root.Position
+		local dist = d.Magnitude
+		if dist <= bestD and (dist < 0.5 or root.CFrame.LookVector:Dot(d.Unit) >= Cfg.EnemyArc) then return dist end
+		return nil
+	end
 	for _, m in ipairs(CollectionService:GetTagged(Tags.Enemy)) do
 		if m:IsA("Model") and m:IsDescendantOf(workspace) and not Players:GetPlayerFromCharacter(m) and m:GetAttribute("Descending") ~= true then
 			local hum = m:FindFirstChildOfClass("Humanoid")
 			local r = m.PrimaryPart
 			if hum and hum.Health > 0 and r then
-				local d = r.Position - root.Position
-				local dist = d.Magnitude
-				if dist <= bestD and (dist < 0.5 or root.CFrame.LookVector:Dot(d.Unit) >= Cfg.EnemyArc) then best, bestD = hum, dist end
+				local dist = inFront(r.Position)
+				if dist then best, bestD = hum, dist end
 			end
 		end
 	end
+	for _, m in ipairs(CollectionService:GetTagged(Tags.Egg)) do
+		local egg = Enemies.EggOf(m)
+		local dist = if egg then inFront(egg:GetPivot().Position) else nil
+		if dist and dist < bestD then best, bestEgg, bestD = nil, egg, dist end -- strictly nearer: a larva wins a tie
+	end
 	lastSwingAt[player] = now
-	if not best then return end
 	local dmg = Cfg.EnemyDamage * UpgradeConfig.Value(player, "Player", "Damage")
-	best:TakeDamage(dmg)
-	local name = ((best.Parent :: Instance)).Name
-	if best.Health <= 0 then
-		print(("[Chainsaw] %s %s killed %s (%.0f damage, %.1f studs)"):format(player.Name, tostring(swing), name, dmg, bestD))
-	else
-		print(("[Chainsaw] %s %s hit %s for %.0f, %.0f HP left"):format(player.Name, tostring(swing), name, dmg, best.Health))
+	if bestEgg then
+		Enemies.HitEgg(bestEgg, dmg, player)
+	elseif best then
+		Enemies.Strike(best, dmg, player)
 	end
 end
 

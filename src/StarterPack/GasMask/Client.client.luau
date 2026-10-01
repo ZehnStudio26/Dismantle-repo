@@ -1,10 +1,9 @@
 --!strict
--- GasMask client (TOOL-04 / T-4): while held, the camera goes first person (you look out through the
--- goggles, Shayan 2026-09-29) and the view narrows two ways, both by tier so an upgrade is visible on
--- screen: the camera FOV drops to the tier's value, and the goggle overlay shows. All of it restores
--- when the tool is put away, including the zoom you had: Roblox leaves the camera fully zoomed in
--- after LockFirstPerson -> Classic, so the old distance is forced back through CameraMinZoomDistance
--- for a couple of frames (the DevForum fix).
+-- GasMask client (TOOL-04 / T-4): while the mask is WORN (player attribute Masked, owned by Server.Mask;
+-- worn since 2026-10-01 so the chainsaw and gun stay usable) the view narrows two ways, both by tier so an
+-- upgrade is visible on screen: the camera FOV drops to the tier's value, and the goggle overlay shows.
+-- The FOV is left alone in the top-down map view (it would only zoom the map). This script lives in the
+-- tool, which stays in the backpack as the "you own a mask" marker; the camera itself is ViewToggle's.
 --
 -- The overlay is StarterGui.MaskOverlay, authored in Studio (Shayan 2026-09-29): one full-screen
 -- ImageLabel, Mask, the goggle art (rbxassetid://138611101429796), stretched so its frame always
@@ -25,7 +24,7 @@ local function tier(): number
 	return math.clamp(level, 1, #Mask.FOVByTier)
 end
 
--- The overlay may not have replicated yet on the very first equip; find it lazily, never yield.
+-- The overlay may not have replicated yet on the very first wear; find it lazily, never yield.
 local function overlay(): ScreenGui?
 	local pg = player:FindFirstChildOfClass("PlayerGui")
 	local g = pg and pg:FindFirstChild("MaskOverlay")
@@ -36,43 +35,9 @@ local function imageScale(t: number): number
 	return (Mask.ApertureByTier[t] or 1) / (Mask.ApertureByTier[1] or 1)
 end
 
--- first person while worn; savedZoom is the third-person distance to return to. The tool's own handle
--- would sit in front of the lens (the first-person fade does not cover it), so it is hidden on this
--- client only; everyone else still sees the mask in the hand.
-local savedZoom: number? = nil
-local hideConn: RBXScriptConnection? = nil
-local function hideHandle(on: boolean)
-	local handle = tool:FindFirstChild("Handle")
-	if hideConn then hideConn:Disconnect(); hideConn = nil end
-	if not (handle and handle:IsA("BasePart")) then return end
-	if on then
-		-- the camera's transparency controller rewrites the modifier each frame, so keep setting it
-		hideConn = game:GetService("RunService").RenderStepped:Connect(function() handle.LocalTransparencyModifier = 1 end)
-	else
-		handle.LocalTransparencyModifier = 0
-	end
-end
-local function enterFirstPerson()
-	if player.CameraMode == Enum.CameraMode.LockFirstPerson then return end
-	savedZoom = (camera.CFrame.Position - camera.Focus.Position).Magnitude
-	player.CameraMode = Enum.CameraMode.LockFirstPerson
-	hideHandle(true)
-end
-local function leaveFirstPerson()
-	hideHandle(false)
-	if player.CameraMode ~= Enum.CameraMode.LockFirstPerson then return end
-	player.CameraMode = Enum.CameraMode.Classic
-	local minZoom = game:GetService("StarterPlayer").CameraMinZoomDistance
-	local back = math.clamp(savedZoom or 12, math.max(minZoom, 4), player.CameraMaxZoomDistance)
-	player.CameraMinZoomDistance = back
-	task.delay(0.1, function() player.CameraMinZoomDistance = minZoom end)
-	savedZoom = nil
-end
-
 local function apply()
-	enterFirstPerson()
 	local t = tier()
-	camera.FieldOfView = Mask.FOVByTier[t]
+	camera.FieldOfView = if player:GetAttribute("TopView") == true then Mask.DefaultFOV else Mask.FOVByTier[t]
 	local gui = overlay()
 	local img = gui and gui:FindFirstChild("Mask")
 	local s = imageScale(t)
@@ -83,20 +48,25 @@ local function apply()
 			TweenService:Create(img, info, { Size = UDim2.fromScale(s, s) }):Play()
 		end
 	end
-	print(("[Mask] worn (first person), Lv%d, FOV %d, goggle image x%.2f%s"):format(t, camera.FieldOfView, s,
-		if not gui then " (no MaskOverlay in PlayerGui)" elseif not img then " (MaskOverlay has no Mask image)" else ""))
 end
 
 local function clear()
 	camera.FieldOfView = Mask.DefaultFOV
 	local gui = overlay()
 	if gui then gui.Enabled = false end
-	leaveFirstPerson()
 end
 
-tool.Equipped:Connect(apply)
-tool.Unequipped:Connect(clear)
-tool.Destroying:Connect(clear) -- dying with the mask on skips Unequipped; the next life starts in third person
-player:GetAttributeChangedSignal("MaskLevel"):Connect(function()
-	if tool.Parent == player.Character then apply() end
+local function refresh()
+	if player:GetAttribute("Masked") == true then apply() else clear() end
+end
+
+local conns = {
+	player:GetAttributeChangedSignal("Masked"):Connect(refresh),
+	player:GetAttributeChangedSignal("MaskLevel"):Connect(refresh),
+	player:GetAttributeChangedSignal("TopView"):Connect(refresh),
+}
+tool.Destroying:Connect(function() -- a new life brings a new tool (and starts unmasked)
+	for _, c in ipairs(conns) do c:Disconnect() end
+	clear()
 end)
+refresh()

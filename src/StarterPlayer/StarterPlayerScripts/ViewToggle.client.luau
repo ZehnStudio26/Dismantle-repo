@@ -1,11 +1,13 @@
 --!strict
--- ViewToggle (U-2 / KJ-52): the VIEW rail button or the V key flips between the normal third-person
--- camera and a TOP-DOWN map view like the reference's (Shayan 2026-09-29): high above, looking down,
+-- ViewToggle (U-2 / KJ-52): the VIEW rail button or the V key flips between FIRST PERSON (the default,
+-- StarterPlayer.CameraMode LockFirstPerson; Ayesh 2026-10-01: no third-person view) and a TOP-DOWN map view like the reference's (Shayan 2026-09-29): high above, looking down,
 -- set a little to the right, in the heading you had when you switched. The map view does NOT follow
 -- the player: it opens centred on you and you pan it yourself, the mouse wheel moving it forward /
 -- back on screen and a right-button drag moving it any way, kept within Margin studs of the kaiju.
--- Only V / VIEW brings the camera back to your character, placed behind you (ReturnBack / ReturnUp), and the
--- next top view re-centres on you.
+-- Only V / VIEW brings the camera back into your head, looking the way you face, and the next top view
+-- re-centres on you. The map view runs in CameraMode Classic so the mouse is free to pan and click.
+-- First person locks the mouse to the centre, so a render step after the camera's frees it while
+-- the upgrade panel, the run results or a cutscene is up, or while Left Alt is held (to click the rail).
 -- You keep walking and cutting meanwhile: the chainsaw's cursor selection raycasts from the active
 -- camera. Bound at the Camera render priority, before the chainsaw's camera step (+1), so hit shake
 -- still plays. Numbers: RunConfig.TopView. Player attribute TopView carries the mode.
@@ -64,26 +66,28 @@ local function setTop(on: boolean)
 		focus = if root then root.Position else cf.Position
 		clampFocus()
 		camPos = cam.CFrame.Position
+		player.CameraMode = Enum.CameraMode.Classic
 		RunService:BindToRenderStep("TopView", Enum.RenderPriority.Camera.Value, step)
 	else
 		RunService:UnbindFromRenderStep("TopView")
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		camPos = nil
-		-- back behind the player: the default camera takes its rotation from the current CFrame, so place it
-		-- behind and a little above the character first, then hand control back
+		-- back into the head: the default camera takes its rotation from the current CFrame, so aim it the way
+		-- the character faces first, then hand control back. Spectating (Down) keeps its own Classic camera.
 		local root = rootPart()
 		if root then
 			local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
 			look = if look.Magnitude > 0.05 then look.Unit else -Vector3.zAxis
-			cam.CFrame = CFrame.lookAt(root.Position - look * Cfg.ReturnBack + Vector3.yAxis * Cfg.ReturnUp, root.Position + Vector3.yAxis * 1.5)
+			local eye = root.Position + Vector3.yAxis * 1.5
+			cam.CFrame = CFrame.lookAt(eye, eye + look)
 		end
+		if player:GetAttribute("Down") ~= true then player.CameraMode = Enum.CameraMode.LockFirstPerson end
 		cam.CameraType = Enum.CameraType.Custom
 		local char = player.Character
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		if hum then cam.CameraSubject = hum end
 	end
 	player:SetAttribute("TopView", on)
-	print(("[View] %s"):format(if on then "top-down map view (wheel pans forward / back, right-drag pans; V or VIEW to return)" else "back to your character (third-person view)"))
 end
 
 local gui = player:WaitForChild("PlayerGui"):WaitForChild("Upgrades")
@@ -120,4 +124,18 @@ player.CharacterAdded:Connect(watchDeath)
 if player.Character then task.spawn(watchDeath, player.Character) end
 
 player:SetAttribute("TopView", false)
-player:SetAttribute("FirstPerson", false) -- the old first-person mode is gone; Stores still reads the flag
+player:SetAttribute("FirstPerson", false) -- no longer read by anything shown; Stores still declares the flag
+
+-- free the mouse in first person while a menu needs clicking (see the header). The camera sets LockCenter
+-- every frame, so this runs right after it (Camera + 2, behind the chainsaw's Camera + 1).
+local pg = player:WaitForChild("PlayerGui")
+local panel = gui:WaitForChild("Panel") :: Frame
+local function on(name: string): boolean
+	local g = pg:FindFirstChild(name)
+	return g ~= nil and g:IsA("ScreenGui") and g.Enabled
+end
+RunService:BindToRenderStep("FreeCursor", Enum.RenderPriority.Camera.Value + 2, function()
+	if panel.Visible or on("Results") or on("Cutscene") or UserInputService:IsKeyDown(Enum.KeyCode.LeftAlt) then
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+	end
+end)

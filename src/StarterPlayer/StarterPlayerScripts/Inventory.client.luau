@@ -1,10 +1,13 @@
 --!strict
--- Inventory (B5 / TOOL-05 / TOOL-06, D5): three slots on keys 1-3 (the 4th was dropped 2026-09-29).
+-- Inventory (B5 / TOOL-05 / TOOL-06, D5): four slots on keys 1-4 (the 4th, dropped 2026-09-29, is back
+-- 2026-10-01 for the grappling hook).
 -- Switching costs exactly one action: one key press equips that slot (EquipTool swaps whatever
 -- is held). Pressing the slot you already hold unequips it. Replaces the default hotbar.
--- The bar is authored in Studio (StarterGui.Hotbar: Bar.Slot1..3, each with an IconView image of its tool
+-- The bar is authored in Studio (StarterGui.Hotbar: Bar.Slot1..4, each with an IconView image of its tool
 -- and a Key label); this script only styles the slots from UITheme: gold rim on the held tool, the
 -- icon dimmed while the tool is not owned. Click a slot to select it too.
+-- The gas mask (slot 3) is worn, not held (2026-10-01): its key toggles it through Remotes.Mask and the
+-- slot lights while the player attribute Masked is on, whatever tool is in hand.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -12,9 +15,10 @@ local StarterGui = game:GetService("StarterGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Slots = require(ReplicatedStorage.Config.ToolConfig).Slots
+local MaskRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Mask") :: RemoteEvent
 local T = require(ReplicatedStorage.Config.UITheme)
 local SLOT_COUNT = #Slots
-local KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three }
+local KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four }
 
 local player = Players.LocalPlayer
 
@@ -55,8 +59,8 @@ local function refresh()
 		local s = slots[i]
 		local name = Slots[i]
 		local owned = name ~= nil and findTool(name) ~= nil
-		local isHeld = owned and held == name
-		s.frame.BackgroundColor3 = if isHeld then T.Line.Gun:Lerp(T.Palette.Panel, 0.55) else T.Palette.Panel
+		local isHeld = owned and (if name == "GasMask" then player:GetAttribute("Masked") == true else held == name)
+		s.frame.BackgroundColor3 = if isHeld then T.Palette.Accent:Lerp(T.Palette.Panel, 0.55) else T.Palette.Panel
 		if s.stroke then
 			s.stroke.Color = if isHeld then T.Palette.Gold else T.Palette.Edge
 			s.stroke.Thickness = if isHeld then 3 else 2
@@ -73,10 +77,11 @@ local function select(i: number)
 	if not name then return end
 	local tool = findTool(name)
 	if not tool then
-		print(("[Inventory] slot %d: %s not owned"):format(i, name))
 		return
 	end
-	if tool.Parent == character() then
+	if name == "GasMask" then
+		MaskRemote:FireServer() -- worn on top of whatever is held
+	elseif tool.Parent == character() then
 		hum:UnequipTools()
 	else
 		hum:EquipTool(tool) -- one action: swaps out whatever was held
@@ -100,7 +105,7 @@ local function watch(container: Instance)
 	container.ChildRemoved:Connect(function() task.defer(refresh) end)
 end
 watch(player.Backpack)
+player:GetAttributeChangedSignal("Masked"):Connect(refresh)
 player.CharacterAdded:Connect(function(char) watch(char); task.defer(refresh) end)
 if player.Character then watch(player.Character) end
 refresh()
-print(("[Inventory] hotbar: %d slots with icons (%s)"):format(SLOT_COUNT, table.concat(Slots, ", ")))

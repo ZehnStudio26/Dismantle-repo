@@ -17,7 +17,7 @@ local UpgradeConfig = require(ReplicatedStorage.Config.UpgradeConfig)
 -- ponytail: drone flight between blocks is a flat 0.25 s per block: a hop to a neighbour at
 -- DroneConfig.ApproachSpeed with the ease-out reaches station in about 0.25 s (2026-09-28). Measure it
 -- in a playtest (the drone's "finished a block" lines) and put the real number here if it drifts.
-local DRONE_TRAVEL = 0.32 -- 2026-09-29: ApproachSpeed 40
+local DRONE_TRAVEL = 0.53 -- 2026-10-01: ApproachSpeed 24 (0.32 at 40, scaled)
 -- the upgrades that change cutting speed; Range, AutoCut and the gun also cost cash but are left out
 local SHOP = { { "Player", "Damage" }, { "Player", "Speed" }, { "Drone", "Count" }, { "Drone", "Damage" }, { "Drone", "Speed" } }
 
@@ -96,9 +96,6 @@ function Balance.Report(kaiju: Model): { [string]: number }
 	local party = RunConfig.MaxPartySize
 	local solo, saw, drones = simulate(blocks, chunkHP, cells, 1)
 	local full, _, _, bought = simulate(blocks, chunkHP, cells, party)
-	print(("[Balance] %d blocks, %d total HP (%.2f HP a chunk). Simulated run: solo %.1f min, %d players %.1f min, against a %d min target for %d players (%d%% of it for walking and events). Fully upgraded, one player breaks %.2f blocks/s with the chainsaw and %.2f with drones."):format(
-		blocks, totalHP, chunkHP, solo, party, full, RunConfig.TargetRunMinutes, party, RunConfig.OverheadShare * 100, saw, drones))
-	print("[Balance] upgrade order in the party run: " .. bought)
 	local target = RunConfig.TargetRunMinutes
 	if full > target * 1.15 then
 		warn(("[Balance] the %d-player run is %.1f min, %.0f%% over the %d min target: raise automation or area damage, or cut blocks (KJ-25)"):format(party, full, (full / target - 1) * 100, target))

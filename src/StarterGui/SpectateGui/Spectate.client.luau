@@ -6,6 +6,8 @@
 -- goes down or leaves. When the run ends Server.Health respawns you and the camera comes back.
 -- (Adapted from the team's SpectateGui: its manual Spectate toggle is hidden, the list skips downed
 -- players and players who left, and the camera follows the teammate's Humanoid.)
+-- The game is first person (ViewToggle), so spectating switches to CameraMode Classic and a SPECTATE_ZOOM
+-- distance behind the teammate (the only third-person camera left), and back to first person when you are up.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
@@ -16,6 +18,8 @@ local title = gui:WaitForChild("Title") :: TextLabel
 local nextButton = container:WaitForChild("NextButton") :: TextButton
 local lastButton = container:WaitForChild("LastButton") :: TextButton
 local label = container:WaitForChild("PlayerLabel") :: TextLabel
+
+local SPECTATE_ZOOM = 14 -- studs behind the watched teammate
 
 local watching: Player? = nil
 local conns: { RBXScriptConnection } = {}
@@ -60,13 +64,17 @@ watch = function(step: number)
 	-- the one we watch goes down or leaves: move on
 	table.insert(conns, hum.Died:Connect(function() task.defer(watch, 1) end))
 	table.insert(conns, p.AncestryChanged:Connect(function() if not p.Parent then task.defer(watch, 1) end end))
-	print(("[Spectate] watching %s (%d teammate(s) up)"):format(p.Name, #list))
 end
 
 local function setDown(down: boolean)
 	container.Visible = down
 	title.Visible = down
 	if down then
+		-- Classic comes back fully zoomed in after LockFirstPerson: hold the min zoom out for a moment
+		player.CameraMode = Enum.CameraMode.Classic
+		local minZoom = game:GetService("StarterPlayer").CameraMinZoomDistance
+		player.CameraMinZoomDistance = SPECTATE_ZOOM
+		task.delay(0.1, function() player.CameraMinZoomDistance = minZoom end)
 		watching = nil
 		watch(1)
 	else
@@ -74,6 +82,7 @@ local function setDown(down: boolean)
 		watching = nil
 		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		if hum then workspace.CurrentCamera.CameraSubject = hum end
+		player.CameraMode = Enum.CameraMode.LockFirstPerson
 	end
 end
 

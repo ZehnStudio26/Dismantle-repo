@@ -15,7 +15,7 @@ local RunService = game:GetService("RunService")
 local Packets = require(ReplicatedStorage.Modules.Packets)
 local Profile = require(script.Parent.Profile) -- saved before the teleport so the run loads it (R-3)
 
-local GAMEPLAY_PLACE_ID = 96604275292994 -- the "Kaiju" gameplay place; the lobby must be published into the same experience
+local GAMEPLAY_PLACE_ID = 75324414255401 -- "[Gameplay] - Cleaner the Kaiju", same experience as this lobby
 local FULL_COUNTDOWN = 3                 -- seconds left once every slot is taken
 local TELEPORT_TRIES = 3
 
@@ -72,7 +72,6 @@ local function removePlayer(player: Player, why: string, moveOut: boolean?)
 	setGui(player, false)
 	publish(st)
 	if #st.players == 0 and not st.deploying then resetCountdown(st) end
-	print(("[Lobby] %s left the %d-slot pad (%s): %d/%d"):format(player.Name, st.max, why, #st.players, st.max))
 end
 
 local function deploy(st: PadState)
@@ -83,7 +82,6 @@ local function deploy(st: PadState)
 	end
 	local names = {}
 	for _, p in ipairs(party) do table.insert(names, p.Name) end
-	print(("[Lobby] deploying %d player(s) from the %d-slot pad: %s"):format(#party, st.max, table.concat(names, ", ")))
 	local options = Instance.new("TeleportOptions")
 	options.ShouldReserveServer = true -- a fresh server: this party's own run
 	-- save first: the gameplay server waits for these versions before it loads (no lost purchases)
@@ -102,7 +100,6 @@ local function deploy(st: PadState)
 	end
 	st.deploying = false
 	if ok then
-		print(("[Lobby] teleport started for %d player(s) to place %d"):format(#party, GAMEPLAY_PLACE_ID))
 		return -- they leave the server; PlayerRemoving frees the slots
 	end
 	if RunService:IsStudio() then
@@ -147,7 +144,6 @@ local function join(st: PadState, player: Player)
 	r.CFrame = st.pad.CFrame + Vector3.new(0, 3, 0)
 	setGui(player, true)
 	publish(st)
-	print(("[Lobby] %s took a slot on the %d-slot pad: %d/%d"):format(player.Name, st.max, #st.players, st.max))
 	if #st.players == 1 then runCountdown(st) end -- the first player starts the clock; later ones join it
 end
 
@@ -199,9 +195,3 @@ TeleportService.TeleportInitFailed:Connect(function(player: Player, result: Enum
 	removePlayer(player, "teleport failed", true)
 end)
 
-print(("[Lobby] %d pad(s) ready (slots %s), deploying to place %d"):format(#pads, (function()
-	local s = {}
-	for _, st in ipairs(pads) do table.insert(s, tostring(st.max)) end
-	table.sort(s)
-	return table.concat(s, "/")
-end)(), GAMEPLAY_PLACE_ID))

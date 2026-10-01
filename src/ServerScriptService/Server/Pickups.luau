@@ -39,7 +39,6 @@ local function place(kind: string, cf: CFrame, size: Vector3)
 	part.Parent = folder
 	spawned += 1
 	table.insert(live, { kind = kind, part = part, until_ = os.clock() + c.Lifetime })
-	print(("[Pickup] %s at %s, gone in %ds if nobody reaches it"):format(kind, tostring(part.Position), c.Lifetime))
 end
 
 local function collect(p: Pickup, player: Player, hum: Humanoid)
@@ -48,11 +47,9 @@ local function collect(p: Pickup, player: Player, hum: Humanoid)
 		local cash = (tonumber(player:GetAttribute("Cash")) or 0) + c.Cash
 		player:SetAttribute("Cash", cash)
 		BlockFX:FireAllClients("Block", p.part.CFrame, p.part.Size, c.Cash, player.Name) -- same "+$N" popup as a block
-		print(("[Pickup] %s rescued a survivor: +$%d (Cash %d)"):format(player.Name, c.Cash, cash))
 	else
 		local before = hum.Health
 		hum.Health = math.min(hum.MaxHealth, hum.Health + c.Heal)
-		print(("[Pickup] %s picked up health: %.0f -> %.0f"):format(player.Name, before, hum.Health))
 	end
 	taken += 1
 end
@@ -69,7 +66,6 @@ RunService.Heartbeat:Connect(function(dt)
 		if not gone and now >= p.until_ then
 			gone = true
 			expired += 1
-			print(("[Pickup] %s expired unreached"):format(p.kind))
 		end
 		if not gone then
 			for _, player in ipairs(Players:GetPlayers()) do

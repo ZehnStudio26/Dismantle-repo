@@ -29,12 +29,10 @@ Demolition.BlockBroken.Event:Connect(function(cf: CFrame, size: Vector3, materia
 	truss.Material = Enum.Material.Metal
 	truss.Parent = folder
 	placed += 1
-	print(("[Scaffold] #%d at %s (%s block broken by %s), leaning %s"):format(placed, tostring(truss.Position), tostring(material), source, tostring(dir)))
 end)
 
 Demolition.Cleared.Event:Connect(function()
 	folder:ClearAllChildren()
-	print(("[Scaffold] run cleared, removed %d trusses"):format(placed))
 	placed = 0
 end)
 

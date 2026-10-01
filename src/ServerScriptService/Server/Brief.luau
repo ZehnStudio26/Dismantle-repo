@@ -44,14 +44,12 @@ Players.PlayerAdded:Connect(function(player)
 	player:SetAttribute("BriefRuns", runs)
 	-- The client shows the brief itself once it sees the attribute; a remote fired here could
 	-- land before the client script is listening. BriefShow stays for explicit replays.
-	print(("[Brief] %s has been briefed %d time(s) before: %s"):format(player.Name, runs, if runs == 0 then "narrate, no skip" else "skip offered"))
 end)
 
 BriefDone.OnServerEvent:Connect(function(player: Player, skipped: boolean?)
 	local runs = (tonumber(player:GetAttribute("BriefRuns")) or 0) + 1
 	player:SetAttribute("BriefRuns", runs)
 	save(player, runs)
-	print(("[Brief] %s finished the brief (%s), briefed %d time(s) total"):format(player.Name, if skipped then "skipped" else "watched", runs))
 end)
 
 -- Replay the brief for a player (a lobby button later, tests now).

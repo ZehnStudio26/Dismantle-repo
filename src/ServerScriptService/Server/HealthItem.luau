@@ -30,7 +30,6 @@ local function place(cf: CFrame, size: Vector3, source: string)
 	m:SetAttribute("Spin", true)
 	m.Parent = folder
 	table.insert(live, { model = m, pos = pos, expires = os.clock() + Cfg.ExpireSeconds })
-	print(("[Health] cross released by %s at %s: +%d HP to whoever reaches it, %ds"):format(source, tostring(pos), Cfg.Heal, Cfg.ExpireSeconds))
 end
 
 -- one loop for every cross on the kaiju
@@ -42,7 +41,6 @@ task.spawn(function()
 			local it = live[i]
 			local gone = it.model.Parent == nil
 			if not gone and now >= it.expires then
-				print(("[Health] cross at %s expired unclaimed"):format(tostring(it.pos)))
 				gone = true
 			end
 			if not gone then
@@ -54,7 +52,6 @@ task.spawn(function()
 						and (root.Position - it.pos).Magnitude <= Cfg.PickupRange then
 						local before = hum.Health
 						hum.Health = math.min(hum.MaxHealth, hum.Health + Cfg.Heal)
-						print(("[Health] %s picked up a cross: %.0f -> %.0f HP"):format(p.Name, before, hum.Health))
 						gone = true
 						break
 					end

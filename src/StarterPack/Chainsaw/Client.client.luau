@@ -4,9 +4,9 @@
 -- under the cursor to the server, play the feel of the hit, and carry the body feel.
 --   * Equip plays once when the tool comes out, then Idle loops while it is held. The animations
 --     key the "Handle" joint, so the saw's position is theirs; the server mounts the Motor6D.
---     Upper body only (Shayan 2026-09-29): the clips come from Animations.UpperBody, copies of the
---     rig's AnimSaves with the leg keys removed (registered as temporary ids), so the default walk and
---     idle move the legs; the uploaded full-body ids are the fallback. On R6 the legs hang off the
+--     The uploaded ids on Animations.<name> play (live and in Studio). Animations.UpperBody holds copies
+--     of the rig's AnimSaves with the leg keys removed, so the default walk and idle move the legs; they
+--     are registered as temporary ids only in Studio for a clip with no uploaded id. On R6 the legs hang off the
 --     torso and the slashes twist it up to ~88 deg, so while the saw is out the hips are turned back
 --     by that twist every frame (keepLegs): the legs walk where you move, the torso swings.
 --   * Each click swings once (Bee 2026-09-28): Slash1, then Slash2 as a combo (ComboGap /
@@ -17,8 +17,7 @@
 --     is within reach, and the swing's hit lands on it at the ray's hit point. Reach is the
 --     Player.Range tier in BLOCKS around the player's own cell (1 = the ring around you, the floor
 --     under you and the step above). A block out of reach gets no outline and the swing whiffs.
---     One layer at a time (RunConfig.OneLayerAtATime): a block below RunState.ActiveLayer is outlined
---     red and the swing does not report it; clear the open layer first.
+--     Any block in reach can be cut, at any height (Ayesh 2026-10-01: only the drones go layer by layer).
 --     The hit lands HitTime seconds into each slash (the arm's fastest moment in the rig's saves).
 --   * Feel (own hits only, from the server's reply): outline flash (red on a crit), white screen
 --     flash, camera dip and shake, "CRITICAL!" billboard at the hit point, hitstop. The block pop,
@@ -70,7 +69,6 @@ local ORIGIN = if typeof(kaijuModel:GetAttribute("Origin")) == "Vector3" then ka
 local function speedMult(): number return UpgradeConfig.Value(player, "Player", "Speed") end
 local function reachBlocks(): number return UpgradeConfig.Value(player, "Player", "Range") end
 local function autoCut(): boolean return UpgradeConfig.Value(player, "Player", "AutoCut") >= 1 end
-
 type Swing = "Slash1" | "Slash2"
 
 -- rig for the current equip; nil while unequipped
@@ -103,9 +101,6 @@ local shakeUntil, shakeSeconds, shakeDegrees = -math.huge, 1, 0
 local headMotion = Vector3.zero
 local rng = Random.new()
 
-local function log(fmt: string, ...: any)
-	print(("[Chainsaw] " .. fmt):format(...))
-end
 
 -- frame-rate independent lerp factor (the pack's MathUtil.ExponentialAlpha)
 local function alpha(sharpness: number, dt: number): number
@@ -193,16 +188,7 @@ local function inReach(root: BasePart, centre: Vector3): boolean
 	return math.max(math.abs(d.X), math.abs(d.Y), math.abs(d.Z)) <= reachBlocks() + 0.5
 end
 
--- A block below the open layer cannot be cut yet (Server.Demolition refuses it the same way).
--- Sandbox blocks carry an Adopted attribute and are exempt.
-local function lockedByLayer(holder: Instance): boolean
-	if not RunConfig.OneLayerAtATime or holder:GetAttribute("Adopted") == true then return false end
-	local active, by = RunState:GetAttribute("ActiveLayer"), holder:GetAttribute("BY")
-	return typeof(active) == "number" and typeof(by) == "number" and by < active
-end
-
 -- Returns the part to report, the hit position and its holder for the block under the cursor, or nil.
--- A fourth value, true, means the block is in reach but locked below the open layer.
 -- The raycast alone loses a cracked block (a ray into one of its holes lands on what is behind), so
 -- the grid walk runs on every aim and wins whenever it finds a cracked block nearer than the hit.
 local function aimed(root: BasePart): (BasePart?, Vector3?, Instance?, boolean?)
@@ -222,7 +208,6 @@ local function aimed(root: BasePart): (BasePart?, Vector3?, Instance?, boolean?)
 	end
 	local centre = if hitHolder then blockCentre(hitHolder) else nil
 	if not centre or not inReach(root, centre) then return nil, nil, nil end
-	if lockedByLayer(hitHolder :: Instance) then return nil, nil, hitHolder, true end
 	return hitPart, hitPos, hitHolder
 end
 
@@ -330,11 +315,9 @@ end
 local function onHit(swing: Swing, track: AnimationTrack, r: Rig)
 	hitStopUntil = os.clock() + Cfg.HitStopTime
 	if hitSound then hitSound:Play() end
-	local part, pos, holder, locked = aimed(r.root)
+	local part, pos = aimed(r.root)
 	local at = if track.Length > 0 then track.TimePosition else (os.clock() - swingStartedAt) * currentMult
-	if locked then
-		ChainsawHit:FireServer(nil, nil, swing) -- no block, but the swing can still strike a larva
-	elseif part and pos then
+	if part and pos then
 		lastHitPos = pos
 		ChainsawHit:FireServer(part, pos, swing)
 	else
@@ -429,17 +412,17 @@ end
 local function outlineStep()
 	local r = rig
 	if not r then return end
-	local _, _, holder, locked = aimed(r.root)
+	local _, _, holder = aimed(r.root)
 	local centre = if holder then blockCentre(holder) else nil
 	if centre and aimBox.Position ~= centre then aimBox.CFrame = CFrame.new(centre) end
-	outline.Color3 = if locked then Color3.fromRGB(235, 70, 60) else Color3.new(1, 1, 1) -- red: below the open layer
 	outline.Visible = centre ~= nil
 end
 
--- an upper-body clip (leg keys removed) as an Animation, registered once per session; nil falls back
--- to the uploaded full-body clip
+-- an upper-body clip (leg keys removed) as an Animation, registered once per session. Studio only, and only
+-- for a clip with no uploaded id: registered ids are temporary and never load in the live game (2026-09-30)
 local upperIds: { [string]: string } = {}
 local function upperBody(name: string): Animation?
+	if not RunService:IsStudio() then return nil end
 	local folder = animFolder:FindFirstChild("UpperBody")
 	local kfs = folder and folder:FindFirstChild(name)
 	if not kfs or not kfs:IsA("KeyframeSequence") then return nil end
@@ -505,7 +488,7 @@ local function equip()
 			warn("[Chainsaw] missing animation " .. name)
 			return
 		end
-		local track = animator:LoadAnimation(upperBody(name) or anim)
+		local track = animator:LoadAnimation(if anim.AnimationId ~= "" then anim else (upperBody(name) or anim))
 		track.Looped = name == "Idle"
 		-- Idle sits under Equip and the slashes: Action < Action2 < Action3
 		track.Priority = if name == "Idle" then Enum.AnimationPriority.Action elseif name == "Equip" then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action3
@@ -521,11 +504,9 @@ local function equip()
 	table.insert(r.conns, RunService.RenderStepped:Connect(outlineStep))
 	RunService:BindToRenderStep("ChainsawCamera", Enum.RenderPriority.Camera.Value + 1, cameraStep)
 	if humanoid.RigType == Enum.HumanoidRigType.R6 then keepLegs(char :: Model, root, r.conns) end
-	log("body split: %s clips, legs %s", if next(upperIds) then "upper-body" else "full-body (fallback)", if restoreLegs then "kept straight under the torso twist" else "not corrected (not R6)")
 	tracks.Equip:Play(Cfg.FadeInTime)
 	if equipSound then equipSound:Play() end
 	if idleSound then idleSound:Play() end
-	log("equipped by %s (%s rig; cursor selection, open layer %s, reach %d block(s) around you, swing speed x%.2f, auto cut %s; walk %d -> %d held / %d swinging, FOV -> %d)", player.Name, tostring(humanoid.RigType), if RunConfig.OneLayerAtATime then tostring(RunState:GetAttribute("ActiveLayer")) else "any (rule off)", reachBlocks(), speedMult(), if autoCut() then "ON" else "off (one click per swing)", MOVE.DefaultWalkSpeed, MOVE.HeldWalkSpeed, MOVE.SwingWalkSpeed, CAM.HeldFOV)
 	-- load checks: a track that stays at length 0 did not load; the server should have mounted the saw
 	task.delay(1.5, function()
 		if rig ~= r then return end
@@ -560,7 +541,6 @@ local function unequip()
 	if restoreLegs then restoreLegs(); restoreLegs = nil end
 	for _, track in pairs(r.tracks) do track:Stop(0) end
 	current = nil
-	log("unequipped (walk %d, FOV %d)", MOVE.DefaultWalkSpeed, CAM.DefaultFOV)
 end
 
 tool.Equipped:Connect(equip)

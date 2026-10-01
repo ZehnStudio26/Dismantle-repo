@@ -49,10 +49,13 @@ for _, id in ipairs(Shop.Order) do
 		Text = scope:Computed(function(use) return ("CARRYING %d/%d"):format(use(count), item.Max) end),
 	}
 	local buy = card:WaitForChild("Buy") :: TextButton
-	scope:Hydrate(buy) {
+	-- the text sits in an outlined Caption label, like the rail buttons (2026-09-30)
+	scope:Hydrate(buy:WaitForChild("Caption") :: TextLabel) {
 		Text = scope:Computed(function(use) return if use(full) then "FULL" else ("BUY  $%d"):format(item.Price) end),
+	}
+	scope:Hydrate(buy) {
 		BackgroundColor3 = scope:Computed(function(use)
-			return if use(full) then T.Palette.Edge elseif use(affordable) then T.Palette.Green else T.Palette.Red
+			return if use(full) then T.Palette.Edge elseif use(affordable) then T.Palette.Accent else T.Palette.Red
 		end),
 	}
 	buy.Activated:Connect(function() BuyItem:FireServer(id) end)

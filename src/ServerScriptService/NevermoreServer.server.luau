@@ -17,4 +17,3 @@ local serviceBag = require("ServiceBag").new()
 serviceBag:Init()
 serviceBag:Start()
 
-print("[Nevermore] server loader ready: ServiceBag started, packages under " .. root:GetFullName())

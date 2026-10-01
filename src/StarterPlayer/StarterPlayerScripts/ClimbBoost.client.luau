@@ -20,7 +20,6 @@ local function watch(char: Model)
 		if new == Enum.HumanoidStateType.Climbing and not climbing then
 			climbing, saved = true, hum.WalkSpeed
 			step = RunService.PreSimulation:Connect(function() hum.WalkSpeed = CLIMB end)
-			print(("[Climb] boost on: climbing at walk speed %d"):format(CLIMB))
 		elseif new ~= Enum.HumanoidStateType.Climbing and climbing then
 			climbing = false
 			if step then step:Disconnect(); step = nil end

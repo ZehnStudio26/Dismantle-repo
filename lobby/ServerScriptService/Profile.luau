@@ -4,7 +4,8 @@
 -- rescue / clear reward. Spend: upgrades, shop. Coins and upgrades persist via DataStore".
 -- Saved, as player attributes the rest of the game already reads and writes:
 --   Cash            the one currency (earned in runs, spent on upgrades and in the lobby shop)
---   Upg_<Line>_<Stat> every upgrade tier (UpgradeConfig)
+--   Upg_<Line>_<Stat> every upgrade tier (UpgradeConfig), except the run-only lines (UpgradeConfig.RunOnly,
+--                     KJ-100: drones are bought again every run, never saved or loaded)
 --   Medkits         healing items bought in the lobby, used in the run (R-4)
 -- Safety rules (no lost progress):
 --   * a profile that failed to load is NEVER saved (it would overwrite real data with defaults)
@@ -16,6 +17,13 @@
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
+local UpgradeConfig = require(game:GetService("ReplicatedStorage").Config.UpgradeConfig)
+
+-- an Upg_<Line>_<Stat> attribute that belongs in the profile (not a run-only line)
+local function saved(name: string): boolean
+	local line = name:match("^Upg_([^_]+)_")
+	return line ~= nil and not UpgradeConfig.RunOnly[line]
+end
 
 local STORE_NAME = "DismantleProfile_v1"
 local AUTOSAVE_SECONDS = 60
@@ -51,7 +59,7 @@ end
 local function snapshot(player: Player): Data
 	local tiers = {}
 	for name, v in pairs(player:GetAttributes()) do
-		if name:sub(1, 4) == "Upg_" and typeof(v) == "number" then tiers[name] = v end
+		if saved(name) and typeof(v) == "number" then tiers[name] = v end
 	end
 	return {
 		version = 0,
@@ -66,7 +74,7 @@ end
 local function apply(player: Player, d: Data)
 	player:SetAttribute("Cash", (tonumber(d.cash) or 0) + (tonumber(player:GetAttribute("Cash")) or 0))
 	for name, tier in pairs(d.tiers or {}) do
-		if typeof(tier) == "number" then
+		if typeof(tier) == "number" and saved(name) then
 			player:SetAttribute(name, math.max(tier, tonumber(player:GetAttribute(name)) or 1))
 		end
 	end
@@ -112,8 +120,6 @@ local function load(player: Player)
 	st.version = data and tonumber(data.version) or 0
 	st.loaded = true
 	Profile.Loaded:Fire(player)
-	print(("[Profile] %s loaded v%d: $%d, %d medkit(s)%s"):format(player.Name, st.version,
-		tonumber(player:GetAttribute("Cash")) or 0, tonumber(player:GetAttribute("Medkits")) or 0, if data then "" else " (new player)"))
 end
 
 -- save now; returns the new version, or nil when nothing was written
@@ -152,7 +158,7 @@ end
 local function watch(player: Player)
 	player.AttributeChanged:Connect(function(name)
 		local st = states[player]
-		if st and (name == "Cash" or name == "Medkits" or name:sub(1, 4) == "Upg_") then st.dirty = true end
+		if st and (name == "Cash" or name == "Medkits" or saved(name)) then st.dirty = true end
 	end)
 end
 

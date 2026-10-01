@@ -19,4 +19,3 @@ local serviceBag = require("ServiceBag").new()
 serviceBag:Init()
 serviceBag:Start()
 
-print("[Nevermore] client loader ready: ServiceBag started")

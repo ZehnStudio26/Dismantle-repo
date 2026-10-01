@@ -1,6 +1,7 @@
 --!strict
 -- Handgun client (T-2 / U-4, Shayan 2026-09-29): auto lock-on. While the handgun is held, the nearest
--- living larva within the Gun.Range tier that the muzzle can see is locked: a red outline and a ring
+-- living larva or incubating egg (tag "Egg", 2026-10-01; a larva wins when about as near) within the
+-- Gun.Range tier that the muzzle can see is locked: a red outline and a ring
 -- over it (Handgun.LockHighlight / Handgun.LockOn, authored in Studio), and the character turns to face
 -- it. Q (gamepad L1, or the NEXT touch button) switches to the next larva in range, nearest first.
 -- Click to fire, hold to keep firing at the Gun.FireRate tier. A crosshair sits in the middle of the
@@ -27,6 +28,7 @@ local function stat(name: string): number return UpgradeConfig.Value(Players.Loc
 
 local LOCK_KEEP = 1.15      -- a held lock survives until the larva is this far past the range (no flicker at the edge)
 local LOCK_HZ = 10          -- target checks per second
+local EGG_BIAS = 1          -- studs added to an egg's distance when sorting, so an equally near larva is locked first
 local TURN_SHARPNESS = 14   -- how fast the body swings round to face the lock
 local SPIN_DEG = 120        -- ring spin, degrees per second
 local AIM_DISTANCE = 1000
@@ -147,7 +149,17 @@ local function myRoot(): BasePart?
 	return if r and r:IsA("BasePart") then r else nil
 end
 
+-- an incubating egg: not yet hatched or popped (Server.Egg / Enemies set HatchAt, EggHP and Burst)
+local function eggRoot(m: Instance): BasePart?
+	if not m:IsA("Model") or not m:IsDescendantOf(workspace) or m:GetAttribute("Burst") == true then return nil end
+	if (tonumber(m:GetAttribute("EggHP")) or 1) <= 0 then return nil end
+	local at = tonumber(m:GetAttribute("HatchAt"))
+	if at and workspace:GetServerTimeNow() >= at then return nil end
+	return m.PrimaryPart
+end
+
 local function larvaRoot(m: Instance): BasePart?
+	if CollectionService:HasTag(m, Tags.Egg) then return eggRoot(m) end
 	if not m:IsA("Model") or not m:IsDescendantOf(workspace) or Players:GetPlayerFromCharacter(m) then return nil end
 	if m:GetAttribute("Descending") == true then return nil end -- still floating down the UFO beam
 	local hum = m:FindFirstChildOfClass("Humanoid")
@@ -171,23 +183,22 @@ local function setLock(m: Model?, r: BasePart?)
 	outline.Enabled = m ~= nil
 	paintReticle(m ~= nil)
 	local me = myRoot()
-	if m and r and me then
-		print(("[Gun] locked %s at %.0f studs"):format(m.Name, (r.Position - me.Position).Magnitude))
-	end
 end
 
--- every larva the muzzle can see within the range, nearest first
+-- every larva and egg the muzzle can see within the range, nearest first (eggs sorted EGG_BIAS further)
 type Candidate = { model: Model, root: BasePart, d: number }
 local function candidates(me: BasePart): { Candidate }
 	local range = stat("Range")
 	local list: { Candidate } = {}
-	for _, m in ipairs(CollectionService:GetTagged(Tags.Enemy)) do
+	local function consider(m: Instance, bias: number)
 		local r = larvaRoot(m)
 		if r then
 			local d = (r.Position - me.Position).Magnitude
-			if d <= range and inSight(m :: Model, r) then table.insert(list, { model = m :: Model, root = r, d = d }) end
+			if d <= range and inSight(m :: Model, r) then table.insert(list, { model = m :: Model, root = r, d = d + bias }) end
 		end
 	end
+	for _, m in ipairs(CollectionService:GetTagged(Tags.Enemy)) do consider(m, 0) end
+	for _, m in ipairs(CollectionService:GetTagged(Tags.Egg)) do consider(m, EGG_BIAS) end
 	table.sort(list, function(a, b) return a.d < b.d end)
 	return list
 end
@@ -215,7 +226,6 @@ local function switchTarget()
 	local nxt = list[at % #list + 1]
 	if nxt.model == locked then return end -- only one larva in range
 	setLock(nxt.model, nxt.root)
-	print(("[Gun] switched target: %d of %d larva(e) in range"):format(at % #list + 1, #list))
 end
 
 -- ---------- recoil ----------
@@ -355,8 +365,6 @@ tool.Equipped:Connect(function()
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
 	ContextActionService:SetTitle(SWITCH_ACTION, "NEXT")
-	print(("[Gun] handgun equipped: auto lock-on within %d studs, %d shot(s)/s, %d damage, Q switches target, recoil %s"):format(
-		stat("Range"), stat("FireRate"), stat("Damage"), if recoilTrack then "on" else "off (no clip)"))
 end)
 tool.Unequipped:Connect(function()
 	equipped, holding = false, false

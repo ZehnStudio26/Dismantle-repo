@@ -26,7 +26,7 @@ local lobby = card:WaitForChild("Lobby") :: TextButton
 
 local HIDE = { "HUD", "Hotbar", "Upgrades", "Crosshair", "SpectateGui", "MaskOverlay", "Cutscene" }
 local COUNT = TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local LIME = ColorSequence.new(Color3.fromRGB(185, 242, 100), Color3.fromRGB(78, 188, 44))
+local WIN = ColorSequence.new(Color3.fromRGB(255, 170, 80), Color3.fromRGB(230, 100, 20)) -- safety orange (Hazard Crew)
 local RED = ColorSequence.new(Color3.fromRGB(250, 120, 95), Color3.fromRGB(196, 48, 38))
 local NL = string.char(10)
 
@@ -74,7 +74,7 @@ end
 
 scope:Hydrate(gui) { Enabled = scope:Computed(function(use) return use(result) ~= nil end) }
 scope:Hydrate(card:WaitForChild("Pop") :: UIScale) { Scale = scope:Spring(popGoal, 28, 0.55) }
-scope:Hydrate(header:WaitForChild("Fill") :: UIGradient) { Color = scope:Computed(function(use) return if use(cleared) then LIME else RED end) }
+scope:Hydrate(header:WaitForChild("Fill") :: UIGradient) { Color = scope:Computed(function(use) return if use(cleared) then WIN else RED end) }
 scope:Hydrate(header:WaitForChild("Title") :: TextLabel) {
 	Text = scope:Computed(function(use) return if use(cleared) then "KAIJU" .. NL .. "DISMANTLED!" else "SITE" .. NL .. "LOST" end),
 }
@@ -139,8 +139,6 @@ RunResults.OnClientEvent:Connect(function(r: Payload)
 	popGoal:set(0.85)
 	result:set(r)
 	task.defer(function() popGoal:set(1) end)
-	print(("[Results] %s: %s, %d blocks, %s earned, bonus %s, %d in the crew"):format(
-		if r.cleared then "KAIJU DISMANTLED!" else "SITE LOST", clock(r.seconds), r.blocks, money(r.earned), money(r.bonus), #r.crew))
 	-- countdown to the automatic return, shown in the button
 	local deadline = os.clock() + r.returnIn
 	task.spawn(function()

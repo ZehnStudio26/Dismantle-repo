@@ -43,7 +43,6 @@ function EventBlocks.Seed(kaiju: Model)
 			if p:IsA("BasePart") then p.Color = color; p.Material = mat end
 		end
 	end
-	print(("[EventBlocks] seeded %d event blocks into %d flesh blocks"):format(n, #flesh))
 end
 
 return EventBlocks

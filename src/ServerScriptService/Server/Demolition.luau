@@ -9,6 +9,8 @@
 -- neighbour blocks. A block completes when its last chunk goes. One hit spends its damage on the exposed
 -- chunks nearest the hit point, chunk after chunk, so DPS stays exact.
 -- D7 (drone never cuts event blocks) and D9 (gun never cuts the kaiju) are enforced once, in CanDamage.
+-- So is the layer rule (RunConfig.OneLayerAtATime): drones cut only the highest layer with blocks left;
+-- the player cuts anywhere (Ayesh 2026-10-01). RunState.ActiveLayer / ActiveLayerLeft publish it for clients.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -23,7 +25,7 @@ local DIRS = { Vector3.xAxis, -Vector3.xAxis, Vector3.yAxis, -Vector3.yAxis, Vec
 local Demolition = {}
 Demolition.Cleared = Instance.new("BindableEvent")     -- fired once when the last block goes
 Demolition.BlockBroken = Instance.new("BindableEvent") -- (cframe, size, material, source, actor: Player?, cash) before the block is destroyed
-Demolition.CellHit = Instance.new("BindableEvent")     -- (firstChunk, blockModel, hitPos, 0, source) once per hit that landed
+Demolition.CellHit = Instance.new("BindableEvent")     -- (firstChunk, blockModel, hitPos, healthFraction, source, hp, maxHp) once per hit that landed
 Demolition.CellBroken = Instance.new("BindableEvent")  -- (cframe, size, color, material, source) per removed chunk
 
 type Block = {
@@ -35,6 +37,7 @@ type Block = {
 	left: number,
 	deadPart: BasePart?,   -- the intact Part after cracking: still resolves, so an aim or drone target taken a tick earlier keeps working
 	deadChunks: { BasePart }, -- removed chunk Parts: a client aim can be a frame stale; they still resolve to the block until it is gone
+	adopted: boolean?,     -- placed by Demolition.Adopt (Studio sandbox): outside the layer rule
 }
 
 local kaiju: Model? = nil
@@ -47,6 +50,19 @@ local instToBlock: { [Instance]: Block } = {}
 local contribution: { [string]: number } = {}
 local remainingBlocks, totalBlocks = 0, 0
 local unitsLeft, totalUnits = 0, 0
+-- one layer at a time: live block count per layer (grid BY), adopted blocks excluded
+local layerCount: { [number]: number } = {}
+local activeLayer = -math.huge
+local function topLayer(): number
+	local top = -math.huge
+	for y, n in pairs(layerCount) do if n > 0 and y > top then top = y end end
+	return top
+end
+local function publishLayer()
+	local has = activeLayer > -math.huge
+	RunState:SetAttribute("ActiveLayer", if has then activeLayer else nil)
+	RunState:SetAttribute("ActiveLayerLeft", if has then (layerCount[activeLayer] or 0) else 0)
+end
 
 local function publish()
 	RunState:SetAttribute("RemainingBlocks", remainingBlocks)
@@ -110,11 +126,12 @@ local function showBlock(b: Block)
 	if b.part and b.part.Parent ~= kaiju then
 		b.part.Size = Vector3.one * B -- nor when it is scaled
 		b.part.CFrame = blockCFrame(b) -- hidden parts do not follow the model when it is moved in Studio
+		b.part:SetAttribute("RevealedAt", workspace:GetServerTimeNow()) -- BlockFX pops it in
 		b.part.Parent = kaiju
 	end
 end
 
-local function createChunkPart(b: Block, ck: Vector3)
+local function createChunkPart(b: Block, ck: Vector3, revealed: boolean?)
 	if b.chunkParts[ck] or not b.model then return end
 	local x, y, z = localIndex(b, ck)
 	local p = Instance.new("Part")
@@ -125,6 +142,7 @@ local function createChunkPart(b: Block, ck: Vector3)
 	p.Material = surface(b) -- chunks wear the block skin (Phase 1 materials)
 	p.Color = tint(b, x, y, z)
 	p:SetAttribute("CX", x); p:SetAttribute("CY", y); p:SetAttribute("CZ", z)
+	if revealed then p:SetAttribute("RevealedAt", workspace:GetServerTimeNow()) end -- BlockFX pops it in
 	p.Parent = b.model
 	b.chunkParts[ck] = p
 	instToBlock[p] = b
@@ -136,7 +154,7 @@ local function crack(b: Block)
 	local part = b.part :: BasePart
 	local m = Instance.new("Model")
 	m.Name = part.Name
-	for _, a in ipairs({ "BlockMaterial", "Region", "BlockId", "Demolishable", "Color", "BX", "BY", "BZ" }) do m:SetAttribute(a, part:GetAttribute(a)) end
+	for _, a in ipairs({ "BlockMaterial", "Region", "BlockId", "Demolishable", "Color", "BX", "BY", "BZ", "Adopted" }) do m:SetAttribute(a, part:GetAttribute(a)) end
 	b.model = m
 	b.chunks = {}
 	local hp = chunkMaxHP(b)
@@ -166,7 +184,7 @@ local function revealAround(ck: Vector3)
 		local nb = blocks[blockKeyOf(nk)]
 		if nb then
 			if nb.chunks == nil then showBlock(nb)
-			elseif nb.chunks[nk] ~= nil and not nb.chunkParts[nk] then createChunkPart(nb, nk) end
+			elseif nb.chunks[nk] ~= nil and not nb.chunkParts[nk] then createChunkPart(nb, nk, true) end
 		end
 	end
 end
@@ -185,6 +203,9 @@ function Demolition.CanDamage(inst: Instance?, source: string): (boolean, string
 	if not b then return false, "not a live kaiju block" end
 	if source == "Gun" then return false, "D9: gun does not cut the kaiju" end
 	if source == "Drone" and isEventBlock(b) then return false, "D7: drone never cuts event blocks" end
+	if RunConfig.OneLayerAtATime and not b.adopted and source == "Drone" and b.key.Y < activeLayer then
+		return false, ("layer: clear layer %d first"):format(activeLayer)
+	end
 	return true, nil
 end
 
@@ -198,6 +219,13 @@ local function forgetBlock(b: Block, source: string?)
 	if b.model then instToBlock[b.model] = nil end
 	unitsLeft -= b.left
 	remainingBlocks -= 1
+	if not b.adopted then
+		layerCount[b.key.Y] = (layerCount[b.key.Y] or 1) - 1
+		if b.key.Y == activeLayer and layerCount[b.key.Y] <= 0 then
+			activeLayer = topLayer()
+		end
+		publishLayer()
+	end
 	if source then contribution[source] = (contribution[source] or 0) + 1 end
 	-- everything around the gone block is now open air
 	for _, d in ipairs(DIRS) do
@@ -256,30 +284,44 @@ function Demolition.Damage(inst: Instance?, amount: number, source: string, hitP
 	local b = instToBlock[inst :: Instance] :: Block
 	if b.chunks == nil then crack(b) end
 	local pos = hitPos or (if inst and inst:IsA("BasePart") and inst.Parent then inst.Position else blockCFrame(b).Position)
-	local list: { { key: Vector3, part: BasePart, d: number } } = {}
-	for ck, p in pairs(b.chunkParts) do table.insert(list, { key = ck, part = p, d = (p.Position - pos).Magnitude }) end
-	table.sort(list, function(u, v) return u.d < v.d end)
+	-- The hit spends its damage chunk by chunk, nearest first, up to maxChunks. Removing a chunk can
+	-- reveal the one behind it, and the leftover damage carries on into those too (KJ-25: before, a hit
+	-- stopped at the chunks showing when it landed, so a block open only on top took three hits whatever
+	-- the cap said).
 	local budget = amount
+	local cap = math.max(1, maxChunks or 1)
 	local hit: { BasePart } = {}
 	local model = b.model
-	for i = 1, math.min(math.max(1, maxChunks or 1), #list) do
-		if budget <= 0 then break end
-		local e = list[i]
-		local hp = (b.chunks :: { [Vector3]: number })[e.key]
-		if hp then
-			local dmg = math.min(budget, hp)
-			budget -= dmg
-			hp -= dmg
-			table.insert(hit, e.part)
-			if hp <= 0 then
-				removeChunk(b, e.key, source, actor)
-				if not blocks[b.key] then break end -- block completed
-			else
-				(b.chunks :: { [Vector3]: number })[e.key] = hp
+	while budget > 0 and #hit < cap and blocks[b.key] do
+		local list: { { key: Vector3, part: BasePart, d: number } } = {}
+		for ck, p in pairs(b.chunkParts) do
+			if (b.chunks :: { [Vector3]: number })[ck] then table.insert(list, { key = ck, part = p, d = (p.Position - pos).Magnitude }) end
+		end
+		if #list == 0 then break end
+		table.sort(list, function(u, v) return u.d < v.d end)
+		for _, e in ipairs(list) do
+			if budget <= 0 or #hit >= cap or not blocks[b.key] then break end
+			local hp = (b.chunks :: { [Vector3]: number })[e.key]
+			if hp then
+				local dmg = math.min(budget, hp)
+				budget -= dmg
+				hp -= dmg
+				table.insert(hit, e.part)
+				if hp <= 0 then
+					removeChunk(b, e.key, source, actor)
+				else
+					(b.chunks :: { [Vector3]: number })[e.key] = hp
+				end
 			end
 		end
 	end
-	if hit[1] and model then Demolition.CellHit:Fire(hit[1], model, pos, 0, source) end
+	if hit[1] and model then
+		-- block health for the health bar: the chunks left, out of the block's full HP
+		local maxHp = chunkMaxHP(b) * UNITS
+		local hp = 0
+		if blocks[b.key] and b.chunks then for _, h in pairs(b.chunks) do hp += h end end
+		Demolition.CellHit:Fire(hit[1], model, pos, if maxHp > 0 then hp / maxHp else 0, source, hp, maxHp)
+	end
 	return amount - math.max(budget, 0), hit
 end
 
@@ -305,6 +347,7 @@ function Demolition.Init(model: Model)
 	hiddenFolder = ServerStorage:FindFirstChild("KaijuHidden") :: Folder?
 	blocks, instToBlock, contribution = {}, {}, {}
 	totalBlocks = 0
+	layerCount = {}
 	local function register(inst: Instance)
 		if inst:IsA("BasePart") and inst:GetAttribute("BlockMaterial") ~= nil and inst:GetAttribute("Demolishable") ~= false then
 			local key = Vector3.new(tonumber(inst:GetAttribute("BX")) or 0, tonumber(inst:GetAttribute("BY")) or 0, tonumber(inst:GetAttribute("BZ")) or 0)
@@ -312,6 +355,7 @@ function Demolition.Init(model: Model)
 			blocks[key] = b
 			instToBlock[inst] = b
 			totalBlocks += 1
+			layerCount[key.Y] = (layerCount[key.Y] or 0) + 1
 		end
 	end
 	for _, child in ipairs(model:GetChildren()) do register(child) end
@@ -349,13 +393,41 @@ function Demolition.Init(model: Model)
 	RunState:SetAttribute("TotalBlocks", totalBlocks)
 	RunState:SetAttribute("State", "Running")
 	publish()
-	local exposed = #model:GetChildren()
-	print(("[Demolition] %d blocks of %d chunks (%.2f-stud chunks, %.1f-stud blocks): %d exposed, %d hidden server-side"):format(totalBlocks, UNITS, C, B, exposed, totalBlocks - exposed))
+	activeLayer = topLayer()
+	publishLayer()
 	-- Blocks removed by anything that bypassed Damage() are still counted, so the percent cannot drift.
 	model.ChildRemoved:Connect(function(child)
 		local b = instToBlock[child]
 		if b and holder(b) == child and blocks[b.key] then forgetBlock(b, "External") end
 	end)
+end
+
+-- Adopt a block Part authored outside the kaiju (a test rig, a hand-placed set piece) into the grid
+-- at run time: snap it to the nearest cell, key it, move it under the kaiju and count it. The block
+-- then behaves exactly like a generated one (cracks, chunks, D7, BlockBroken). Needs BlockMaterial.
+function Demolition.Adopt(part: BasePart): boolean
+	if not kaiju or instToBlock[part] or part:GetAttribute("BlockMaterial") == nil then return false end
+	local k = (part.Position - origin) / B
+	local key = Vector3.new(math.round(k.X), math.round(k.Y), math.round(k.Z))
+	if blocks[key] then return false end -- the cell is already a block (TestArea counts these)
+	part.Size = Vector3.new(B, B, B)
+	part.CFrame = CFrame.new(origin + key * B)
+	part.Anchored = true
+	part:SetAttribute("BX", key.X); part:SetAttribute("BY", key.Y); part:SetAttribute("BZ", key.Z)
+	part:SetAttribute("Demolishable", true)
+	part:SetAttribute("Adopted", true) -- sandbox block: outside the layer rule (clients read this too)
+	if part:GetAttribute("Color") == nil then part:SetAttribute("Color", part.Color) end -- chunks tint from this
+	part.Parent = kaiju
+	local b: Block = { key = key, part = part, model = nil, chunks = nil, chunkParts = {}, left = UNITS, deadPart = nil, deadChunks = {}, adopted = true }
+	blocks[key] = b
+	instToBlock[part] = b
+	totalBlocks += 1
+	remainingBlocks += 1
+	totalUnits += UNITS
+	unitsLeft += UNITS
+	RunState:SetAttribute("TotalBlocks", totalBlocks)
+	publish()
+	return true
 end
 
 function Demolition.GetContribution(): { [string]: number } return table.clone(contribution) end
